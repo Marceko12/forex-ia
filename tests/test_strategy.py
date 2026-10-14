@@ -158,6 +158,15 @@ def test_backtest_without_signals_has_no_trades():
     assert res.metrics["final_equity"] == BacktestConfig().initial_balance
 
 
+def test_max_drawdown_includes_intrabar_adverse_equity_and_initial_peak():
+    from src.backtester import compute_metrics
+
+    idx = pd.date_range("2024-01-01", periods=3, freq="1D", tz="UTC")
+    closes = pd.Series([100.0, 110.0, 109.0], index=idx)
+    adverse = pd.Series([100.0, 110.0, 95.0], index=idx)
+    assert compute_metrics(pd.DataFrame(), closes, 100.0, adverse)["max_drawdown_pct"] == -13.64
+
+
 def test_backtest_rejects_invalid_prices_and_unsorted_time():
     import pytest
 

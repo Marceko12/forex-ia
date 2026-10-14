@@ -48,6 +48,13 @@ def test_position_size_from_broker_money_loss_rounds_down():
     assert rm.position_size_for_risk(100, 3.40, EURUSD) == 0.29
 
 
+def test_spread_and_commission_estimates_reduce_position_size():
+    rm = RiskManager(RiskConfig(risk_per_trade=0.01), 10_000)
+    without_cost = rm.position_size(10_000, 20, EURUSD, 1.10)
+    with_cost = rm.position_size(10_000, 20, EURUSD, 1.10, cost_per_lot=17.0)
+    assert with_cost < without_cost
+
+
 def test_nonzero_volume_origin_and_irregular_step_stay_valid():
     from config import SymbolSpec
 

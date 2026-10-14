@@ -71,7 +71,8 @@ class RiskManager:
     # ------------------------------------------------------------------ #
     # Tamaño de posición
     # ------------------------------------------------------------------ #
-    def position_size(self, equity: float, sl_pips: float, spec: SymbolSpec, price: float) -> float:
+    def position_size(self, equity: float, sl_pips: float, spec: SymbolSpec, price: float,
+                      cost_per_lot: float = 0.0) -> float:
         """Lotes para arriesgar `risk_per_trade` del equity si salta el Stop Loss.
 
         Devuelve 0.0 si el tamaño mínimo del broker ya arriesgaría de más
@@ -84,7 +85,9 @@ class RiskManager:
             pip_value = spec.pip_value_per_lot(price)
         except (ValueError, ZeroDivisionError):
             return 0.0
-        return self.position_size_for_risk(equity, sl_pips * pip_value, spec)
+        if not math.isfinite(cost_per_lot) or cost_per_lot < 0:
+            return 0.0
+        return self.position_size_for_risk(equity, sl_pips * pip_value + cost_per_lot, spec)
 
     def position_size_for_risk(self, equity: float, loss_per_lot: float, spec: SymbolSpec) -> float:
         """Dimensiona usando pérdida monetaria por lote calculada por el broker."""

@@ -1,0 +1,689 @@
+{
+  "generated_at_utc": "2026-10-14T05:48:31.799249+00:00",
+  "data": {
+    "path": "data/market_data.csv",
+    "sha256": "512d65e10248a09d7a9b592aa90201c31226cef99ed49367cb6b2e9fb1f13cc1",
+    "rows": 5000,
+    "symbol_evidence": "EURUSDmicro, inferred from logs and matching file modification time",
+    "broker_identity_and_specs_confirmed": false,
+    "provisional_micro_contract_assumption": {
+      "contract_size": 1000,
+      "min_lot": 0.1,
+      "max_lot": 100,
+      "volume_step": 0.01
+    }
+  },
+  "split": {
+    "method": "chronological 60/20/20; no parameter tuning on validation or test",
+    "train_rows": 3000,
+    "validation_rows": 1000,
+    "test_rows": 1000,
+    "train_start": "2026-07-31T16:45:00+00:00",
+    "train_end": "2026-09-14T22:30:00+00:00",
+    "validation_start": "2026-09-14T22:45:00+00:00",
+    "validation_end": "2026-09-29T08:30:00+00:00",
+    "test_start": "2026-09-29T08:45:00+00:00",
+    "test_end": "2026-10-13T18:30:00+00:00"
+  },
+  "model": {
+    "fit_data": "training segment only; AIModel internal chronological 80/20 split with horizon purge",
+    "internal_validation": {
+      "train_rows": 1515,
+      "val_rows": 373,
+      "val_accuracy": 0.5040214477211796,
+      "val_auc": 0.4964827626300796,
+      "base_rate_up": 0.4477211796246649,
+      "top_features": {
+        "ema_diff": 0.1549,
+        "hour_cos": 0.1456,
+        "atr_pct": 0.1059,
+        "hour_sin": 0.0907,
+        "vol_ratio": 0.0786
+      }
+    },
+    "external_validation": {
+      "rows": 698,
+      "accuracy": 0.5186246418338109,
+      "auc": 0.5335669294623118,
+      "base_rate_up": 0.4369627507163324
+    },
+    "test_prediction_metrics": {
+      "rows": 732,
+      "accuracy": 0.5204918032786885,
+      "auc": 0.533325283747887,
+      "base_rate_up": 0.44808743169398907
+    }
+  },
+  "cost_sensitivity": [
+    {
+      "period": "validation",
+      "strategy": "rules",
+      "cost_case": {
+        "name": "base_assumption",
+        "spread_pips": 1.5,
+        "commission_per_1000_unit_lot_usd": 0.0,
+        "slippage_pips_each_side": 0.2
+      },
+      "metrics": {
+        "run": "validation:rules:base_assumption",
+        "initial_balance": 10000.0,
+        "final_equity": 9962.09,
+        "total_return_pct": -0.38,
+        "max_drawdown_pct": -0.53,
+        "sharpe_ratio": -7.05,
+        "sortino_ratio": -8.08,
+        "n_trades": 41,
+        "total_costs": 38.95,
+        "win_rate_pct": 36.59,
+        "profit_factor": 0.67,
+        "avg_win": 5.11,
+        "avg_loss": -4.41,
+        "expectancy": -0.92,
+        "avg_bars_in_trade": 11.1
+      }
+    },
+    {
+      "period": "validation",
+      "strategy": "hybrid",
+      "cost_case": {
+        "name": "base_assumption",
+        "spread_pips": 1.5,
+        "commission_per_1000_unit_lot_usd": 0.0,
+        "slippage_pips_each_side": 0.2
+      },
+      "metrics": {
+        "run": "validation:hybrid:base_assumption",
+        "initial_balance": 10000.0,
+        "final_equity": 9972.78,
+        "total_return_pct": -0.27,
+        "max_drawdown_pct": -0.43,
+        "sharpe_ratio": -5.62,
+        "sortino_ratio": -6.34,
+        "n_trades": 23,
+        "total_costs": 21.85,
+        "win_rate_pct": 34.78,
+        "profit_factor": 0.6,
+        "avg_win": 5.2,
+        "avg_loss": -4.58,
+        "expectancy": -1.18,
+        "avg_bars_in_trade": 15.4
+      }
+    },
+    {
+      "period": "validation",
+      "strategy": "rules",
+      "cost_case": {
+        "name": "higher_cost",
+        "spread_pips": 2.0,
+        "commission_per_1000_unit_lot_usd": 0.07,
+        "slippage_pips_each_side": 0.5
+      },
+      "metrics": {
+        "run": "validation:rules:higher_cost",
+        "initial_balance": 10000.0,
+        "final_equity": 9925.19,
+        "total_return_pct": -0.75,
+        "max_drawdown_pct": -0.88,
+        "sharpe_ratio": -13.42,
+        "sortino_ratio": -11.06,
+        "n_trades": 41,
+        "total_costs": 75.85,
+        "win_rate_pct": 34.15,
+        "profit_factor": 0.46,
+        "avg_win": 4.52,
+        "avg_loss": -5.12,
+        "expectancy": -1.82,
+        "avg_bars_in_trade": 11.1
+      }
+    },
+    {
+      "period": "validation",
+      "strategy": "hybrid",
+      "cost_case": {
+        "name": "higher_cost",
+        "spread_pips": 2.0,
+        "commission_per_1000_unit_lot_usd": 0.07,
+        "slippage_pips_each_side": 0.5
+      },
+      "metrics": {
+        "run": "validation:hybrid:higher_cost",
+        "initial_balance": 10000.0,
+        "final_equity": 9952.08,
+        "total_return_pct": -0.48,
+        "max_drawdown_pct": -0.61,
+        "sharpe_ratio": -9.6,
+        "sortino_ratio": -8.97,
+        "n_trades": 23,
+        "total_costs": 42.55,
+        "win_rate_pct": 30.43,
+        "profit_factor": 0.42,
+        "avg_win": 4.93,
+        "avg_loss": -5.15,
+        "expectancy": -2.08,
+        "avg_bars_in_trade": 15.4
+      }
+    },
+    {
+      "period": "validation",
+      "strategy": "rules",
+      "cost_case": {
+        "name": "stress_cost",
+        "spread_pips": 3.0,
+        "commission_per_1000_unit_lot_usd": 0.14,
+        "slippage_pips_each_side": 1.0
+      },
+      "metrics": {
+        "run": "validation:rules:stress_cost",
+        "initial_balance": 10000.0,
+        "final_equity": 9869.84,
+        "total_return_pct": -1.3,
+        "max_drawdown_pct": -1.42,
+        "sharpe_ratio": -21.05,
+        "sortino_ratio": -12.93,
+        "n_trades": 41,
+        "total_costs": 131.2,
+        "win_rate_pct": 34.15,
+        "profit_factor": 0.25,
+        "avg_win": 3.17,
+        "avg_loss": -6.47,
+        "expectancy": -3.17,
+        "avg_bars_in_trade": 11.1
+      }
+    },
+    {
+      "period": "validation",
+      "strategy": "hybrid",
+      "cost_case": {
+        "name": "stress_cost",
+        "spread_pips": 3.0,
+        "commission_per_1000_unit_lot_usd": 0.14,
+        "slippage_pips_each_side": 1.0
+      },
+      "metrics": {
+        "run": "validation:hybrid:stress_cost",
+        "initial_balance": 10000.0,
+        "final_equity": 9921.03,
+        "total_return_pct": -0.79,
+        "max_drawdown_pct": -0.9,
+        "sharpe_ratio": -14.67,
+        "sortino_ratio": -11.26,
+        "n_trades": 23,
+        "total_costs": 73.6,
+        "win_rate_pct": 30.43,
+        "profit_factor": 0.24,
+        "avg_win": 3.58,
+        "avg_loss": -6.5,
+        "expectancy": -3.43,
+        "avg_bars_in_trade": 15.4
+      }
+    },
+    {
+      "period": "test",
+      "strategy": "rules",
+      "cost_case": {
+        "name": "base_assumption",
+        "spread_pips": 1.5,
+        "commission_per_1000_unit_lot_usd": 0.0,
+        "slippage_pips_each_side": 0.2
+      },
+      "metrics": {
+        "run": "test:rules:base_assumption",
+        "initial_balance": 10000.0,
+        "final_equity": 9981.23,
+        "total_return_pct": -0.19,
+        "max_drawdown_pct": -0.66,
+        "sharpe_ratio": -2.3,
+        "sortino_ratio": -3.13,
+        "n_trades": 46,
+        "total_costs": 43.7,
+        "win_rate_pct": 41.3,
+        "profit_factor": 0.88,
+        "avg_win": 7.35,
+        "avg_loss": -5.87,
+        "expectancy": -0.41,
+        "avg_bars_in_trade": 8.0
+      }
+    },
+    {
+      "period": "test",
+      "strategy": "hybrid",
+      "cost_case": {
+        "name": "base_assumption",
+        "spread_pips": 1.5,
+        "commission_per_1000_unit_lot_usd": 0.0,
+        "slippage_pips_each_side": 0.2
+      },
+      "metrics": {
+        "run": "test:hybrid:base_assumption",
+        "initial_balance": 10000.0,
+        "final_equity": 10002.82,
+        "total_return_pct": 0.03,
+        "max_drawdown_pct": -0.45,
+        "sharpe_ratio": -0.65,
+        "sortino_ratio": -0.96,
+        "n_trades": 21,
+        "total_costs": 19.95,
+        "win_rate_pct": 38.1,
+        "profit_factor": 1.04,
+        "avg_win": 9.69,
+        "avg_loss": -5.75,
+        "expectancy": 0.14,
+        "avg_bars_in_trade": 11.4
+      }
+    },
+    {
+      "period": "test",
+      "strategy": "rules",
+      "cost_case": {
+        "name": "higher_cost",
+        "spread_pips": 2.0,
+        "commission_per_1000_unit_lot_usd": 0.07,
+        "slippage_pips_each_side": 0.5
+      },
+      "metrics": {
+        "run": "test:rules:higher_cost",
+        "initial_balance": 10000.0,
+        "final_equity": 9939.83,
+        "total_return_pct": -0.6,
+        "max_drawdown_pct": -0.89,
+        "sharpe_ratio": -5.32,
+        "sortino_ratio": -6.15,
+        "n_trades": 46,
+        "total_costs": 85.1,
+        "win_rate_pct": 41.3,
+        "profit_factor": 0.67,
+        "avg_win": 6.45,
+        "avg_loss": -6.77,
+        "expectancy": -1.31,
+        "avg_bars_in_trade": 8.0
+      }
+    },
+    {
+      "period": "test",
+      "strategy": "hybrid",
+      "cost_case": {
+        "name": "higher_cost",
+        "spread_pips": 2.0,
+        "commission_per_1000_unit_lot_usd": 0.07,
+        "slippage_pips_each_side": 0.5
+      },
+      "metrics": {
+        "run": "test:hybrid:higher_cost",
+        "initial_balance": 10000.0,
+        "final_equity": 9983.92,
+        "total_return_pct": -0.16,
+        "max_drawdown_pct": -0.51,
+        "sharpe_ratio": -3.37,
+        "sortino_ratio": -4.25,
+        "n_trades": 21,
+        "total_costs": 38.85,
+        "win_rate_pct": 38.1,
+        "profit_factor": 0.81,
+        "avg_win": 8.79,
+        "avg_loss": -6.65,
+        "expectancy": -0.76,
+        "avg_bars_in_trade": 11.4
+      }
+    },
+    {
+      "period": "test",
+      "strategy": "rules",
+      "cost_case": {
+        "name": "stress_cost",
+        "spread_pips": 3.0,
+        "commission_per_1000_unit_lot_usd": 0.14,
+        "slippage_pips_each_side": 1.0
+      },
+      "metrics": {
+        "run": "test:rules:stress_cost",
+        "initial_balance": 10000.0,
+        "final_equity": 9877.73,
+        "total_return_pct": -1.22,
+        "max_drawdown_pct": -1.3,
+        "sharpe_ratio": -9.91,
+        "sortino_ratio": -9.23,
+        "n_trades": 46,
+        "total_costs": 147.2,
+        "win_rate_pct": 41.3,
+        "profit_factor": 0.44,
+        "avg_win": 5.1,
+        "avg_loss": -8.12,
+        "expectancy": -2.66,
+        "avg_bars_in_trade": 8.0
+      }
+    },
+    {
+      "period": "test",
+      "strategy": "hybrid",
+      "cost_case": {
+        "name": "stress_cost",
+        "spread_pips": 3.0,
+        "commission_per_1000_unit_lot_usd": 0.14,
+        "slippage_pips_each_side": 1.0
+      },
+      "metrics": {
+        "run": "test:hybrid:stress_cost",
+        "initial_balance": 10000.0,
+        "final_equity": 9955.57,
+        "total_return_pct": -0.44,
+        "max_drawdown_pct": -0.64,
+        "sharpe_ratio": -7.75,
+        "sortino_ratio": -7.82,
+        "n_trades": 21,
+        "total_costs": 67.2,
+        "win_rate_pct": 38.1,
+        "profit_factor": 0.57,
+        "avg_win": 7.44,
+        "avg_loss": -8.0,
+        "expectancy": -2.11,
+        "avg_bars_in_trade": 11.4
+      }
+    }
+  ],
+  "min_lot_risk_feasibility": [
+    {
+      "cost_case": {
+        "name": "base_assumption",
+        "spread_pips": 1.5,
+        "commission_per_1000_unit_lot_usd": 0.0,
+        "slippage_pips_each_side": 0.2
+      },
+      "volume_min_assumption": 0.1,
+      "estimated_stop_loss_cost_usd_quantiles": {
+        "0.05": 0.07052276986392424,
+        "0.5": 0.09993478337448325,
+        "0.95": 0.1671120561349809
+      },
+      "default_budget_usd": 0.07,
+      "default_eligible_bar_fraction": 0.044,
+      "live_budget_usd": 0.0175,
+      "live_eligible_bar_fraction": 0.0,
+      "actual_broker_verified": false
+    },
+    {
+      "cost_case": {
+        "name": "higher_cost",
+        "spread_pips": 2.0,
+        "commission_per_1000_unit_lot_usd": 0.07,
+        "slippage_pips_each_side": 0.5
+      },
+      "volume_min_assumption": 0.1,
+      "estimated_stop_loss_cost_usd_quantiles": {
+        "0.05": 0.08852276986392427,
+        "0.5": 0.11793478337448325,
+        "0.95": 0.1851120561349809
+      },
+      "default_budget_usd": 0.07,
+      "default_eligible_bar_fraction": 0.0,
+      "live_budget_usd": 0.0175,
+      "live_eligible_bar_fraction": 0.0,
+      "actual_broker_verified": false
+    },
+    {
+      "cost_case": {
+        "name": "stress_cost",
+        "spread_pips": 3.0,
+        "commission_per_1000_unit_lot_usd": 0.14,
+        "slippage_pips_each_side": 1.0
+      },
+      "volume_min_assumption": 0.1,
+      "estimated_stop_loss_cost_usd_quantiles": {
+        "0.05": 0.11552276986392426,
+        "0.5": 0.14493478337448323,
+        "0.95": 0.2121120561349809
+      },
+      "default_budget_usd": 0.07,
+      "default_eligible_bar_fraction": 0.0,
+      "live_budget_usd": 0.0175,
+      "live_eligible_bar_fraction": 0.0,
+      "actual_broker_verified": false
+    }
+  ],
+  "baseline_no_trade": {
+    "return_pct": 0.0,
+    "expectancy": null,
+    "profit_factor": null,
+    "max_drawdown_pct": 0.0,
+    "trades": 0,
+    "meaning": "flat cash; no predictive advantage"
+  },
+  "capital_7_usd": [
+    {
+      "risk_profile": "default_demo_risk",
+      "risk_per_trade_pct": 1.0,
+      "cost_case": {
+        "name": "base_assumption",
+        "spread_pips": 1.5,
+        "commission_per_1000_unit_lot_usd": 0.0,
+        "slippage_pips_each_side": 0.2
+      },
+      "metrics": {
+        "run": "capital7:default_demo_risk:base_assumption",
+        "initial_balance": 7.0,
+        "final_equity": 6.94,
+        "total_return_pct": -0.83,
+        "max_drawdown_pct": -2.28,
+        "sharpe_ratio": 0.55,
+        "sortino_ratio": 0.89,
+        "n_trades": 3,
+        "total_costs": 0.06,
+        "win_rate_pct": 33.33,
+        "profit_factor": 0.57,
+        "avg_win": 0.08,
+        "avg_loss": -0.07,
+        "expectancy": -0.02,
+        "avg_bars_in_trade": 2.7
+      }
+    },
+    {
+      "risk_profile": "default_demo_risk",
+      "risk_per_trade_pct": 1.0,
+      "cost_case": {
+        "name": "higher_cost",
+        "spread_pips": 2.0,
+        "commission_per_1000_unit_lot_usd": 0.07,
+        "slippage_pips_each_side": 0.5
+      },
+      "metrics": {
+        "run": "capital7:default_demo_risk:higher_cost",
+        "initial_balance": 7.0,
+        "final_equity": 7.0,
+        "total_return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "sharpe_ratio": 0.0,
+        "sortino_ratio": 0.0,
+        "n_trades": 0,
+        "total_costs": 0.0,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "expectancy": 0.0,
+        "avg_bars_in_trade": 0.0
+      }
+    },
+    {
+      "risk_profile": "default_demo_risk",
+      "risk_per_trade_pct": 1.0,
+      "cost_case": {
+        "name": "stress_cost",
+        "spread_pips": 3.0,
+        "commission_per_1000_unit_lot_usd": 0.14,
+        "slippage_pips_each_side": 1.0
+      },
+      "metrics": {
+        "run": "capital7:default_demo_risk:stress_cost",
+        "initial_balance": 7.0,
+        "final_equity": 7.0,
+        "total_return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "sharpe_ratio": 0.0,
+        "sortino_ratio": 0.0,
+        "n_trades": 0,
+        "total_costs": 0.0,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "expectancy": 0.0,
+        "avg_bars_in_trade": 0.0
+      }
+    },
+    {
+      "risk_profile": "live_config_risk",
+      "risk_per_trade_pct": 0.25,
+      "cost_case": {
+        "name": "base_assumption",
+        "spread_pips": 1.5,
+        "commission_per_1000_unit_lot_usd": 0.0,
+        "slippage_pips_each_side": 0.2
+      },
+      "metrics": {
+        "run": "capital7:live_config_risk:base_assumption",
+        "initial_balance": 7.0,
+        "final_equity": 7.0,
+        "total_return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "sharpe_ratio": 0.0,
+        "sortino_ratio": 0.0,
+        "n_trades": 0,
+        "total_costs": 0.0,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "expectancy": 0.0,
+        "avg_bars_in_trade": 0.0
+      }
+    },
+    {
+      "risk_profile": "live_config_risk",
+      "risk_per_trade_pct": 0.25,
+      "cost_case": {
+        "name": "higher_cost",
+        "spread_pips": 2.0,
+        "commission_per_1000_unit_lot_usd": 0.07,
+        "slippage_pips_each_side": 0.5
+      },
+      "metrics": {
+        "run": "capital7:live_config_risk:higher_cost",
+        "initial_balance": 7.0,
+        "final_equity": 7.0,
+        "total_return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "sharpe_ratio": 0.0,
+        "sortino_ratio": 0.0,
+        "n_trades": 0,
+        "total_costs": 0.0,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "expectancy": 0.0,
+        "avg_bars_in_trade": 0.0
+      }
+    },
+    {
+      "risk_profile": "live_config_risk",
+      "risk_per_trade_pct": 0.25,
+      "cost_case": {
+        "name": "stress_cost",
+        "spread_pips": 3.0,
+        "commission_per_1000_unit_lot_usd": 0.14,
+        "slippage_pips_each_side": 1.0
+      },
+      "metrics": {
+        "run": "capital7:live_config_risk:stress_cost",
+        "initial_balance": 7.0,
+        "final_equity": 7.0,
+        "total_return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "sharpe_ratio": 0.0,
+        "sortino_ratio": 0.0,
+        "n_trades": 0,
+        "total_costs": 0.0,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "avg_win": 0.0,
+        "avg_loss": 0.0,
+        "expectancy": 0.0,
+        "avg_bars_in_trade": 0.0
+      }
+    }
+  ],
+  "limitations": [
+    "CSV provenance is supported by local logs but not independently authenticated or tied to a recorded account ID.",
+    "EURUSDmicro contract and volume assumptions are provisional; the terminal's symbol_info was not obtained.",
+    "Spread, commission, and slippage values are sensitivity assumptions, not observed XM charges.",
+    "Swap/financing cannot be quantified without the account-specific rate schedule; it is excluded.",
+    "One CSV symbol and a short history are insufficient to claim a durable trading edge."
+  ],
+  "prior_report_reproduction_attempt": {
+    "not_account_specific": true,
+    "rules": {
+      "run": "rules",
+      "initial_balance": 10000.0,
+      "final_equity": 10386.37,
+      "total_return_pct": 3.86,
+      "max_drawdown_pct": -7.1,
+      "sharpe_ratio": 1.58,
+      "sortino_ratio": 2.86,
+      "n_trades": 69,
+      "total_costs": 1259.19,
+      "win_rate_pct": 43.48,
+      "profit_factor": 1.1,
+      "avg_win": 145.19,
+      "avg_loss": -101.78,
+      "expectancy": 5.6,
+      "avg_bars_in_trade": 8.6
+    },
+    "hybrid": {
+      "run": "hybrid",
+      "initial_balance": 10000.0,
+      "final_equity": 10768.94,
+      "total_return_pct": 7.69,
+      "max_drawdown_pct": -3.36,
+      "sharpe_ratio": 4.81,
+      "sortino_ratio": 11.47,
+      "n_trades": 20,
+      "total_costs": 349.86,
+      "win_rate_pct": 55.0,
+      "profit_factor": 1.81,
+      "avg_win": 156.38,
+      "avg_loss": -105.7,
+      "expectancy": 38.45,
+      "avg_bars_in_trade": 14.3
+    },
+    "model_internal_validation": {
+      "train_rows": 1788,
+      "val_rows": 441,
+      "val_accuracy": 0.5034013605442177,
+      "val_auc": 0.5092974775901604,
+      "base_rate_up": 0.4421768707482993,
+      "top_features": {
+        "hour_cos": 0.2107,
+        "ema_diff": 0.1247,
+        "atr_pct": 0.0921,
+        "hour_sin": 0.0828,
+        "macd_hist_n": 0.0747
+      }
+    },
+    "reported_before": {
+      "rules": {
+        "final_equity": 10717.1,
+        "max_drawdown_pct": -7.95,
+        "trades": 68,
+        "profit_factor": 1.15,
+        "expectancy": 10.55
+      },
+      "hybrid": {
+        "final_equity": 10902.22,
+        "max_drawdown_pct": -3.72,
+        "trades": 20,
+        "profit_factor": 1.77,
+        "expectancy": 45.11,
+        "model_auc": 0.509
+      }
+    }
+  }
+}

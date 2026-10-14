@@ -1,0 +1,8 @@
+{
+  "connected": false,
+  "orders_sent": 0,
+  "read_only": true,
+  "symbols": {},
+  "reason": "initialize_failed",
+  "error_code": -10005
+}

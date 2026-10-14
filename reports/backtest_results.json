@@ -17,7 +17,7 @@
     {
       "strategy": "rules",
       "initial_balance_usd": 10000,
-      "final_equity_usd": 10717.10,
+      "final_equity_usd": 10717.1,
       "net_return_pct": 7.17,
       "max_drawdown_pct": -7.95,
       "trades": 68,
@@ -66,5 +66,46 @@
     "intrabar_sl_tp_both_touched": "stop loss assumed first",
     "gaps": "open price used if it crosses stop/target"
   },
-  "interpretation": "Exploratory only. The sample and provenance are insufficient to establish a trading edge or readiness for live execution."
+  "interpretation": "Exploratory only. The sample and provenance are insufficient to establish a trading edge or readiness for live execution.",
+  "status": "SUPERSEDED — historical figures in this file were run with a generic EURUSD/100,000-unit assumption against data that logs identify as EURUSDmicro; they are not account-specific or reliable.",
+  "likely_data_instrument": "EURUSDmicro (from the final MT5 download/save log and matching file timestamp)",
+  "reproduction_check": {
+    "procedure": "reports/run_validation.py repeats the former 70/30 period with spread 1 pip, commission USD 7/lot and slippage 0, then repeats hybrid with same model config.",
+    "rules_metrics_reproduced": {
+      "run": "rules",
+      "initial_balance": 10000.0,
+      "final_equity": 10386.37,
+      "total_return_pct": 3.86,
+      "max_drawdown_pct": -7.1,
+      "sharpe_ratio": 1.58,
+      "sortino_ratio": 2.86,
+      "n_trades": 69,
+      "total_costs": 1259.19,
+      "win_rate_pct": 43.48,
+      "profit_factor": 1.1,
+      "avg_win": 145.19,
+      "avg_loss": -101.78,
+      "expectancy": 5.6,
+      "avg_bars_in_trade": 8.6
+    },
+    "hybrid_metrics_reproduced": {
+      "run": "hybrid",
+      "initial_balance": 10000.0,
+      "final_equity": 10768.94,
+      "total_return_pct": 7.69,
+      "max_drawdown_pct": -3.36,
+      "sharpe_ratio": 4.81,
+      "sortino_ratio": 11.47,
+      "n_trades": 20,
+      "total_costs": 349.86,
+      "win_rate_pct": 55.0,
+      "profit_factor": 1.81,
+      "avg_win": 156.38,
+      "avg_loss": -105.7,
+      "expectancy": 38.45,
+      "avg_bars_in_trade": 14.3
+    },
+    "legacy_metrics_match": false,
+    "reason": "Changes in risk sizing with transaction costs, mark-to-market drawdown and the instrument/contract mismatch. See reports/validation_results.json for the canonical corrected analysis."
+  }
 }

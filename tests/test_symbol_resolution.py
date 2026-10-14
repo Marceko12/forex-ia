@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from pathlib import Path
 
 import pytest
 
@@ -43,3 +44,25 @@ def test_resolver_refuses_ambiguous_suffixes():
 def test_resolver_refuses_missing_symbol():
     with pytest.raises(ValueError, match="no publica"):
         resolve_mt5_symbol(FakeMT5(["GBPUSD"]), "EURUSD")
+
+
+def test_load_csv_rejects_duplicate_and_inconsistent_ohlc(tmp_path):
+    from src.market_data import load_csv
+
+    path = tmp_path / "bars.csv"
+    path.write_text(
+        "time,open,high,low,close,volume\n"
+        "2026-01-01T00:00:00Z,1.0,1.1,0.9,1.0,10\n"
+        "2026-01-01T00:15:00Z,1.0,0.8,0.9,1.0,10\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="inconsistentes"):
+        load_csv(path)
+    path.write_text(
+        "time,open,high,low,close,volume\n"
+        "2026-01-01T00:00:00Z,1.0,1.1,0.9,1.0,10\n"
+        "2026-01-01T00:00:00Z,1.0,1.1,0.9,1.0,10\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="duplicados"):
+        load_csv(path)

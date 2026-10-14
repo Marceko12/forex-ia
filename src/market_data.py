@@ -149,10 +149,24 @@ def load_csv(path: Path = MARKET_DATA_CSV) -> pd.DataFrame:
     df = pd.read_csv(path, parse_dates=["time"], index_col="time")
     if df.index.tz is None:
         df.index = df.index.tz_localize("UTC")
+    else:
+        df.index = df.index.tz_convert("UTC")
     missing = [c for c in OHLCV if c not in df.columns]
     if missing:
         raise ValueError(f"Faltan columnas en {path}: {missing}")
-    return df[OHLCV].sort_index().dropna()
+    if not df.index.is_monotonic_increasing or df.index.has_duplicates:
+        raise ValueError(f"El CSV debe estar ordenado cronológicamente y sin timestamps duplicados: {path}")
+    df = df[OHLCV].apply(pd.to_numeric, errors="coerce")
+    if not np.isfinite(df.to_numpy(dtype=float)).all():
+        raise ValueError(f"El CSV contiene datos OHLCV ausentes o no numéricos: {path}")
+    prices = df[["open", "high", "low", "close"]]
+    if (prices <= 0).any().any() or (df["volume"] < 0).any():
+        raise ValueError(f"El CSV contiene precios no positivos o volumen negativo: {path}")
+    if ((df["high"] < prices[["open", "close"]].max(axis=1))
+            | (df["low"] > prices[["open", "close"]].min(axis=1))
+            | (df["high"] < df["low"])).any():
+        raise ValueError(f"El CSV contiene velas OHLC inconsistentes: {path}")
+    return df
 
 
 # --------------------------------------------------------------------------- #

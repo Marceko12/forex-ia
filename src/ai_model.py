@@ -96,6 +96,8 @@ class AIModel:
 
     def train(self, df: pd.DataFrame) -> dict:
         """Entrena con `df` (con indicadores). Devuelve métricas de validación temporal."""
+        if not df.index.is_monotonic_increasing or df.index.has_duplicates:
+            raise ValueError("El entrenamiento requiere datos cronológicos y sin timestamps duplicados.")
         c = self.cfg
         X = build_features(df)[FEATURE_COLUMNS]
         y = build_labels(df, c.horizon, c.label_atr_mult)

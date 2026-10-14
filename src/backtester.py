@@ -3,7 +3,7 @@ Simulación histórica vela a vela.
 
 Supuestos (deliberadamente conservadores):
   * La señal de la vela t-1 se ejecuta en la APERTURA de la vela t.
-  * Spread: medio spread en la entrada y medio en la salida.
+  * Spread y slippage: medio coste por ejecución en entrada y salida.
   * Si en una misma vela se tocan SL y TP, se asume que salta primero el SL.
   * Gaps: si la apertura ya supera el SL/TP, se sale al precio de apertura.
   * Una sola posición a la vez; el tamaño sale del RiskManager.
@@ -69,11 +69,14 @@ class Backtester:
         atr = df["atr"].to_numpy(float)
         sig = signals.reindex(df.index).fillna(0).to_numpy(int)
         n = len(df)
-        half_spread = bt.spread_pips * spec.pip_size / 2.0
+        if bt.spread_pips < 0 or bt.slippage_pips < 0 or bt.commission_per_lot < 0:
+            raise ValueError("Spread, slippage y comisión no pueden ser negativos.")
+        half_cost = (bt.spread_pips / 2.0 + bt.slippage_pips) * spec.pip_size
 
-        equity = bt.initial_balance
-        risk = RiskManager(self.risk_cfg, equity)
+        balance = bt.initial_balance
+        risk = RiskManager(self.risk_cfg, balance)
         equity_curve = np.full(n, np.nan)
+        drawdown_curve = np.full(n, np.nan)
         trades: list[dict] = []
         pos: dict | None = None
         last_exit_i = -10**9
@@ -82,22 +85,35 @@ class Backtester:
             pips = side * (exit_ - entry) / spec.pip_size
             return pips * spec.pip_value_per_lot(exit_) * lots
 
+        def mark_equity(mark_price: float) -> float:
+            if pos is None:
+                return balance
+            side = pos["side"]
+            close_fill = mark_price - side * half_cost
+            return balance + pnl_money(side, pos["entry"], close_fill, pos["lots"]) - bt.commission_per_lot * pos["lots"]
+
         for i in range(n):
             now = times[i]
-            risk.update(now, equity)
+            # Los controles de riesgo ven el equity liquidable de la vela anterior,
+            # incluyendo spread, slippage y la comisión estimada de cierre.
+            equity_at_open = mark_equity(c[i - 1]) if i > 0 else balance
+            risk.update(now, equity_at_open)
 
             # 1) Entrada: señal de la vela anterior, ejecución a la apertura actual
             if pos is None and i >= 1 and sig[i - 1] != 0 and np.isfinite(atr[i - 1]):
                 if i - last_exit_i > st.cooldown_bars:
-                    ok, why = risk.can_open(now, equity, open_positions=0)
+                    ok, why = risk.can_open(now, equity_at_open, open_positions=0)
                     if ok:
                         side = int(sig[i - 1])
                         sl_dist = st.sl_atr_mult * atr[i - 1]
-                        lots = risk.position_size(equity, sl_dist / spec.pip_size, spec, o[i])
+                        pip_value = spec.pip_value_per_lot(o[i])
+                        estimated_cost = pip_value * (bt.spread_pips + 2 * bt.slippage_pips) + bt.commission_per_lot
+                        lots = risk.position_size(equity_at_open, sl_dist / spec.pip_size,
+                                                  spec, o[i], cost_per_lot=estimated_cost)
                         if lots > 0 and sl_dist > 0:
                             pos = {
                                 "side": side, "lots": lots, "i": i, "time": now,
-                                "entry": o[i] + side * half_spread,
+                                "mid_entry": o[i], "entry": o[i] + side * half_cost,
                                 "sl": o[i] - side * sl_dist,
                                 "tp": o[i] + side * st.rr_ratio * sl_dist,
                             }
@@ -106,6 +122,7 @@ class Backtester:
                         log.debug("%s | entrada bloqueada: %s", now, why)
 
             # 2) Salida: SL / TP / tiempo máximo
+            bar_worst_equity = None
             if pos is not None:
                 side, sl, tp = pos["side"], pos["sl"], pos["tp"]
                 exit_px, reason = None, None
@@ -134,31 +151,44 @@ class Backtester:
                 if exit_px is None and i == n - 1:
                     exit_px, reason = c[i], "EOD"
 
+                # MAE intravela conservador: cuando no se ejecutó el SL,
+                # suponemos que el extremo adverso ocurrió antes del cierre.
+                if exit_px is not None and reason == "SL":
+                    adverse_exit = exit_px - side * half_cost
+                    adverse_pnl = pnl_money(side, pos["entry"], adverse_exit, pos["lots"]) - bt.commission_per_lot * pos["lots"]
+                    bar_worst_equity = balance + adverse_pnl
+                else:
+                    adverse_price = l[i] if side == 1 else h[i]
+                    bar_worst_equity = mark_equity(adverse_price)
+
                 if exit_px is not None:
-                    fill = exit_px - side * half_spread
+                    fill = exit_px - side * half_cost
                     pnl = pnl_money(side, pos["entry"], fill, pos["lots"]) - bt.commission_per_lot * pos["lots"]
-                    equity += pnl
+                    gross_pnl = pnl_money(side, pos["mid_entry"], exit_px, pos["lots"])
+                    costs = gross_pnl - pnl
+                    balance += pnl
                     trades.append({
                         "source": "backtest", "symbol": self.symbol,
                         "entry_time": pos["time"], "exit_time": now,
                         "side": "BUY" if side == 1 else "SELL", "lots": pos["lots"],
                         "entry_price": round(pos["entry"], 5), "exit_price": round(fill, 5),
                         "sl": round(sl, 5), "tp": round(tp, 5),
-                        "pnl": round(pnl, 2), "exit_reason": reason, "equity_after": round(equity, 2),
+                        "gross_pnl": round(gross_pnl, 2), "costs": round(costs, 2),
+                        "pnl": round(pnl, 2), "exit_reason": reason, "equity_after": round(balance, 2),
                         "bars": i - pos["i"],
                     })
                     pos, last_exit_i = None, i
-                    risk.update(now, equity)
 
             # 3) Curva de equity (mark-to-market)
-            floating = 0.0
-            if pos is not None:
-                floating = pnl_money(pos["side"], pos["entry"], c[i], pos["lots"])
-            equity_curve[i] = equity + floating
+            equity_curve[i] = mark_equity(c[i])
+            drawdown_curve[i] = min(equity_curve[i], bar_worst_equity) if pos is not None or bar_worst_equity is not None else equity_curve[i]
+            risk.update(now, drawdown_curve[i])
+            risk.update(now, equity_curve[i])
 
         trades_df = pd.DataFrame(trades)
         equity_s = pd.Series(equity_curve, index=times, name="equity")
-        metrics = compute_metrics(trades_df, equity_s, bt.initial_balance)
+        drawdown_s = pd.Series(drawdown_curve, index=times, name="intrabar_adverse_equity")
+        metrics = compute_metrics(trades_df, equity_s, bt.initial_balance, drawdown_equity=drawdown_s)
         if risk.halted:
             metrics["halted_reason"] = risk.halt_reason
         return BacktestResult(trades_df, equity_s, metrics)
@@ -167,12 +197,22 @@ class Backtester:
 # --------------------------------------------------------------------------- #
 # Métricas
 # --------------------------------------------------------------------------- #
-def compute_metrics(trades: pd.DataFrame, equity: pd.Series, initial_balance: float) -> dict:
+def compute_metrics(trades: pd.DataFrame, equity: pd.Series, initial_balance: float,
+                    drawdown_equity: pd.Series | None = None) -> dict:
     final_equity = float(equity.iloc[-1]) if len(equity) else initial_balance
-    max_dd = float((equity / equity.cummax() - 1.0).min()) if len(equity) else 0.0
+    dd_source = drawdown_equity if drawdown_equity is not None else equity
+    peaks = equity.cummax().clip(lower=initial_balance) if len(equity) else equity
+    prior_peaks = equity.cummax().shift(1).fillna(initial_balance).clip(lower=initial_balance) if len(equity) else equity
+    # Close-to-close drawdown plus conservative intrabar MAE vs prior high-water mark.
+    close_dd = equity / peaks - 1.0 if len(equity) else equity
+    intrabar_dd = dd_source / prior_peaks - 1.0 if len(equity) else dd_source
+    max_dd = min(float(close_dd.min()), float(intrabar_dd.min())) if len(equity) else 0.0
 
     daily = equity.resample("1D").last().dropna().pct_change().dropna()
     sharpe = float(daily.mean() / daily.std(ddof=1) * np.sqrt(252)) if len(daily) > 2 and daily.std(ddof=1) > 0 else 0.0
+    downside = np.minimum(daily.to_numpy(), 0.0)
+    downside_deviation = float(np.sqrt(np.mean(np.square(downside)))) if len(downside) else 0.0
+    sortino = float(daily.mean() / downside_deviation * np.sqrt(252)) if downside_deviation > 0 else 0.0
 
     metrics = {
         "initial_balance": round(initial_balance, 2),
@@ -180,11 +220,13 @@ def compute_metrics(trades: pd.DataFrame, equity: pd.Series, initial_balance: fl
         "total_return_pct": round((final_equity / initial_balance - 1) * 100, 2),
         "max_drawdown_pct": round(max_dd * 100, 2),
         "sharpe_ratio": round(sharpe, 2),
+        "sortino_ratio": round(sortino, 2),
         "n_trades": int(len(trades)),
+        "total_costs": round(float(trades["costs"].sum()), 2) if "costs" in trades.columns and len(trades) else 0.0,
     }
     if trades.empty:
         metrics.update(win_rate_pct=0.0, profit_factor=0.0, avg_win=0.0, avg_loss=0.0,
-                       expectancy=0.0, avg_bars_in_trade=0.0)
+                       expectancy=0.0, avg_bars_in_trade=0.0, total_costs=0.0)
         return metrics
 
     wins = trades.loc[trades["pnl"] > 0, "pnl"]
@@ -206,6 +248,7 @@ def format_metrics(metrics: dict) -> str:
         "initial_balance": "Balance inicial", "final_equity": "Equity final",
         "total_return_pct": "Retorno total (%)", "max_drawdown_pct": "Drawdown máx. (%)",
         "sharpe_ratio": "Sharpe (diario)", "n_trades": "Operaciones",
+        "sortino_ratio": "Sortino (diario)", "total_costs": "Costes totales",
         "win_rate_pct": "Win rate (%)", "profit_factor": "Profit factor",
         "avg_win": "Ganancia media", "avg_loss": "Pérdida media",
         "expectancy": "Expectativa/operación", "avg_bars_in_trade": "Velas por operación",

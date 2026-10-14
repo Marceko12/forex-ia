@@ -3,6 +3,43 @@
 Fecha: 2026-10-14  
 Alcance ejecutado: inspección local, cambios de cálculo y preflight, pruebas automatizadas y backtests en el CSV existente. No se inicializó MetaTrader 5 ni se enviaron órdenes.
 
+## Fase 2 — Correcciones y validación ampliada (2026-10-14)
+
+Esta sección reemplaza las conclusiones anteriores donde haya diferencias. El archivo histórico es muy probablemente **EURUSDmicro**, no EURUSD: `logs/app.log` registra una descarga de 5.000 velas EURUSDmicro y el guardado del CSV a las 10:46:48 del 13 de octubre; la fecha de modificación del CSV corresponde a las 15:46:48 UTC (Lima UTC-5). Una descarga anterior de EURUSD fue sobrescrita. El log no prueba por sí mismo qué cuenta/servidor generó las velas ni contiene un snapshot de `symbol_info`.
+
+El CSV tiene 5.000 filas entre 2026-07-31 16:45 UTC y 2026-10-13 18:30 UTC, timestamps UTC estrictamente ordenados, 0 duplicados, 4.988 intervalos de 15 minutos y 11 pausas semanales de viernes a lunes de 48 h 15 min. OHLCV no tiene valores ausentes/no numéricos, volumen no positivo, precios <= 0 ni inconsistencias OHLC. La apertura dominical de XM no fue confirmada, así que no se afirma que toda pausa de fin de semana sea completa. El hash y el inventario están en [data_validation.json](data_validation.json).
+
+### Correcciones de validación
+
+- Reparamos `.venv\pyvenv.cfg` en el mismo lugar, sin borrar el entorno ni reinstalar paquetes. Se guardó el original en [pyvenv.cfg.before-repair](pyvenv.cfg.before-repair). `.venv\Scripts\python.exe` ahora usa Python 3.12.14 y carga pytest, pandas, numpy, scikit-learn y MetaTrader5.
+- `load_csv` y `AIModel.train` ahora rechazan velas inválidas, timestamps desordenados/duplicados y entrenamiento fuera de orden. El backtester limita tamaño usando equity liquidable, spread, comisión y slippage asumidos; contabiliza costes al marcar equity, estima MAE intravela conservador y calcula drawdown con el pico de cierre anterior.
+- Se añadió `BacktestConfig.slippage_pips`; la configuración por defecto es una hipótesis de 0,2 pips por ejecución, no un dato de XM.
+- Se añadió el generador reproducible [run_validation.py](run_validation.py), que divide cronológicamente 60/20/20, conserva el test sin ajuste de parámetros, compara reglas/híbrida/sin operación y barre tres escenarios fijos de costes. Su salida canónica es [validation_results.json](validation_results.json).
+
+### Entorno y pruebas
+
+Reparación verificada: Python 3.12.14; pytest 9.1.1, pandas 3.0.6, numpy 2.5.4, scikit-learn 1.9.1 y MetaTrader5 5.0.6231 importan desde el entorno reparado. Pruebas finales: **63 passed, 0 failed**; incluyen mocks MT5 y no envían órdenes reales.
+
+Se intentó inicializar el terminal de forma aislada y sin pasar credenciales (sin usar `connect_mt5` ni `login`). MT5 devolvió error IPC **-10005**; la conexión demo y las especificaciones reales no pudieron comprobarse. No se llamó a `order_send`.
+
+### Procedencia de resultados y backtests vigentes
+
+Las cifras previas en `backtest_results.json` **no se reproducen** con el backtester corregido y no deben usarse: el CSV era EURUSDmicro, pero se etiquetó y simuló como EURUSD con el contrato genérico de 100.000 unidades; además faltaban slippage, sizing con costes y drawdown intravela. La prueba de reproducción antigua se conserva en `validation_results.json` como diagnóstico y marca las diferencias.
+
+El resultado nuevo es solo una simulación condicional: usa contract size 1.000, lote mínimo 0,1 y step 0,01 como hipótesis pública de una cuenta XM Micro; no están confirmados en esta cuenta/símbolo. La página de ayuda de XM presenta esos valores para cuentas Micro ([XM — especificaciones generales de Micro](https://www.xm.com/help-center/trading-accounts/are-all-instruments-swap-free-for-ultra-low-account-holders)). Los costes también son escenarios hipotéticos, no spreads/fees registrados de MT5; los swaps están excluidos porque no se obtuvo la tarifa de esta cuenta.
+
+En el test de 1.000 velas, USD 10.000 y costes base hipotéticos (1,5 pips de spread, 0 comisión por lote Micro y 0,2 pips de slippage por lado): reglas **-0,19%**, expectativa **-USD 0,41**, PF **0,88**, DD máximo **-0,66%**, 46 operaciones; híbrida **+0,03%**, expectativa **+USD 0,14**, PF **1,04**, DD **-0,45%**, 21 operaciones. Referencia sin operaciones: 0%, 0 operaciones. Al elevar costes (2 pips, USD 0,07 por lote Micro y 0,5 pips de slippage por lado), reglas **-0,60%**, PF 0,67; híbrida **-0,16%**, PF 0,81. En estrés (3 pips, USD 0,14 por lote Micro y 1 pip de slippage por lado), reglas **-1,22%**, PF 0,44; híbrida **-0,44%**, PF 0,57. No hay evidencia de ventaja fuera de muestra.
+
+La AUC del modelo fue 0,496 en la validación interna, 0,534 en validación externa y 0,533 en test. La estrategia híbrida quedó prácticamente plana antes de cualquier swap y su expectativa fue casi cero; no se considera una ventaja demostrada.
+
+### Balance USD 7 y barreras pendientes
+
+Con hipótesis pública de volumen mínimo Micro 0,1 y contrato 1.000, el riesgo estimado del lote mínimo al SL para EURUSDmicro en el periodo test fue USD **0,071 / 0,100 / 0,167** en percentiles 5/50/95 bajo el escenario base, frente a un presupuesto default de USD 0,07; solo el 4,4% de velas cabría en ese presupuesto, y el backtest produjo 3 operaciones, con retorno -0,83% y DD -2,28%. Bajo la configuración live (0,25%, USD 0,0175) no hubo velas elegibles ni operaciones. Con escenarios de costes superiores no hubo operaciones incluso en el riesgo default. Son cálculos hipotéticos, no el resultado de `order_calc_profit` de XM.
+
+EURCADmicro no se puede cuantificar: no hay histórico guardado para ese símbolo, el terminal falló al inicializarse y faltan conversión CAD/USD, contrato, mínimo/paso, spread y tick values reales. Con el código actual, sin datos MT5, el cálculo de cruces falla de forma segura y bloquea operaciones.
+
+**Conclusión de fase 2:** el entorno quedó reparado y la validación estadística fue reproducible, pero las cifras no son evidencia fiable de rentabilidad ni de ejecución en XM: faltan la confirmación demo real, los specs del símbolo y costes/swaps de la cuenta. El modo real debe permanecer bloqueado.
+
 ## Hallazgos principales
 
 | Gravedad | Hallazgo | Estado |

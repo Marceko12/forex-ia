@@ -177,6 +177,7 @@ class BacktestConfig:
     initial_balance: float = 10_000.0
     spread_pips: float = 1.0
     commission_per_lot: float = 7.0  # USD por lote (ida y vuelta)
+    slippage_pips: float = 0.2  # estimación por ejecución; validar con datos del broker
     train_fraction: float = 0.7
 
 

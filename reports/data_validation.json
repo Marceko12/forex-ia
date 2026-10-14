@@ -1,0 +1,92 @@
+{
+  "path": "data/market_data.csv",
+  "sha256": "512d65e10248a09d7a9b592aa90201c31226cef99ed49367cb6b2e9fb1f13cc1",
+  "rows": 5000,
+  "timestamp_timezone": "UTC",
+  "first_utc": "2026-07-31T16:45:00+00:00",
+  "last_utc": "2026-10-13T18:30:00+00:00",
+  "strictly_chronological": true,
+  "duplicate_timestamps": 0,
+  "delta_counts_minutes": {
+    "15": 4988,
+    "2895": 11
+  },
+  "gaps_over_15_minutes": [
+    {
+      "from_utc": "2026-07-31T23:45:00+00:00",
+      "to_utc": "2026-08-03T00:00:00+00:00",
+      "minutes": 2895.0
+    },
+    {
+      "from_utc": "2026-08-07T23:45:00+00:00",
+      "to_utc": "2026-08-10T00:00:00+00:00",
+      "minutes": 2895.0
+    },
+    {
+      "from_utc": "2026-08-14T23:45:00+00:00",
+      "to_utc": "2026-08-17T00:00:00+00:00",
+      "minutes": 2895.0
+    },
+    {
+      "from_utc": "2026-08-21T23:45:00+00:00",
+      "to_utc": "2026-08-24T00:00:00+00:00",
+      "minutes": 2895.0
+    },
+    {
+      "from_utc": "2026-08-28T23:45:00+00:00",
+      "to_utc": "2026-08-31T00:00:00+00:00",
+      "minutes": 2895.0
+    },
+    {
+      "from_utc": "2026-09-04T23:45:00+00:00",
+      "to_utc": "2026-09-07T00:00:00+00:00",
+      "minutes": 2895.0
+    },
+    {
+      "from_utc": "2026-09-11T23:45:00+00:00",
+      "to_utc": "2026-09-14T00:00:00+00:00",
+      "minutes": 2895.0
+    },
+    {
+      "from_utc": "2026-09-18T23:45:00+00:00",
+      "to_utc": "2026-09-21T00:00:00+00:00",
+      "minutes": 2895.0
+    },
+    {
+      "from_utc": "2026-09-25T23:45:00+00:00",
+      "to_utc": "2026-09-28T00:00:00+00:00",
+      "minutes": 2895.0
+    },
+    {
+      "from_utc": "2026-10-02T23:45:00+00:00",
+      "to_utc": "2026-10-05T00:00:00+00:00",
+      "minutes": 2895.0
+    },
+    {
+      "from_utc": "2026-10-09T23:45:00+00:00",
+      "to_utc": "2026-10-12T00:00:00+00:00",
+      "minutes": 2895.0
+    }
+  ],
+  "ohlc_finite": true,
+  "ohlc_positive": true,
+  "ohlc_consistent": true,
+  "missing_ohlc": 0,
+  "missing_volume": 0,
+  "nonpositive_volume": 0,
+  "close_return_abs_max_pct": 0.39733835356170477,
+  "close_return_abs_p99_pct": 0.1080281817760839,
+  "close_return_abs_over_1pct_count": 0,
+  "provenance_evidence": {
+    "last_mt5_download_log": [
+      "2026-10-13 10:46:48,589",
+      "EURUSDmicro"
+    ],
+    "last_csv_save_log": "2026-10-13 10:46:48,679",
+    "csv_mtime_utc": "2026-10-13T15:46:48.679460+00:00",
+    "mtime_matches_lima_save_log": true,
+    "inferred_final_instrument": "EURUSDmicro",
+    "account_and_server_identity_confirmed": false,
+    "note": "Logs and mtime strongly support MT5 ingestion of EURUSDmicro; original EURUSD download was overwritten. Local logs are not independent authentication."
+  }
+}

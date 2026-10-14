@@ -5,8 +5,10 @@ Proyecto de trading de divisas (forex) con **Python + pandas + scikit-learn**. F
 IA, gestión de riesgo, backtesting realista y logs de operaciones.
 
 > ⚠️ Nada aquí es asesoría financiera ni promete ganancias. El forex tiene riesgo alto
-> y la mayoría de estrategias pierden dinero en real. Los datos incluidos son **sintéticos**
-> (para probar el pipeline): los resultados con ellos no significan nada sobre el mercado real.
+> y la mayoría de estrategias pierden dinero en real. El CSV actual parece proceder de una
+> descarga MT5 de EURUSDmicro según los logs locales, pero no guarda identidad de cuenta ni
+> especificaciones del símbolo autenticables. Los datos sintéticos se generan con `--source synthetic`;
+> no uses resultados sintéticos o sin costes verificados como evidencia de rentabilidad.
 
 ## Inicio rápido en Windows (recomendado)
 
@@ -67,7 +69,7 @@ probarse contra un terminal real** en este entorno; valídala primero en demo.
 | `src/strategy.py` | Reglas (tendencia + momentum) y combinación con la IA. |
 | `src/ai_model.py` | RandomForest: predice si el precio sube > 0.5 ATR en 6 velas. Validación temporal con purga. |
 | `src/risk_manager.py` | 1 % de riesgo por operación, límite diario 3 %, drawdown máx. 10 % (kill-switch), 1 posición, 5 ops/día. |
-| `src/backtester.py` | Entrada en la apertura siguiente, spread, comisión, SL antes que TP si se tocan a la vez, gaps. |
+| `src/backtester.py` | Entrada en apertura siguiente, costes supuestos, slippage configurable, SL antes que TP si se tocan a la vez y drawdown intravela aproximado; swaps no incluidos. |
 | `src/broker_demo.py` | `PaperBroker` (simulador) y `MT5DemoBroker` (rechaza cuentas no demo). |
 | `src/logger.py` | `logs/app.log` (rotativo) y `logs/trades.csv` (una fila por operación). |
 
