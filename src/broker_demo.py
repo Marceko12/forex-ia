@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time as time_module
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
 
@@ -52,7 +53,9 @@ class BaseBroker(ABC):
 
     @abstractmethod
     def market_order(self, side: int, lots: float, sl: float, tp: float,
-                     price: float | None = None, time: pd.Timestamp | None = None) -> Position | None: ...
+                     price: float | None = None, time: pd.Timestamp | None = None,
+                     *, max_loss: float | None = None,
+                     max_spread_pips: float | None = None) -> Position | None: ...
 
     @abstractmethod
     def close_position(self, position: Position, price: float | None = None,
@@ -93,7 +96,8 @@ class PaperBroker(BaseBroker):
     def open_positions(self) -> list[Position]:
         return list(self.positions)
 
-    def market_order(self, side, lots, sl, tp, price=None, time=None) -> Position | None:
+    def market_order(self, side, lots, sl, tp, price=None, time=None, *,
+                     max_loss=None, max_spread_pips=None) -> Position | None:
         price = price if price is not None else self.last_price
         if price <= 0 or lots <= 0:
             log.error("Orden rechazada (precio=%s, lotes=%s)", price, lots)
@@ -146,11 +150,13 @@ class PaperBroker(BaseBroker):
 # MetaTrader 5
 # --------------------------------------------------------------------------- #
 class MT5Broker(BaseBroker):
-    def __init__(self, cfg: MT5Config, spec: SymbolSpec, allow_live: bool = False, deviation: int = 20) -> None:
+    def __init__(self, cfg: MT5Config, spec: SymbolSpec, allow_live: bool = False,
+                 deviation: int = 20, max_spread_pips: float = 2.0) -> None:
         self.cfg = cfg
         self.spec = spec
         self.allow_live = allow_live
         self.deviation = deviation
+        self.max_spread_pips = max_spread_pips
         self.mt5 = None
         self.is_live = False
         self._logged_deals: set[int] = set()
@@ -214,6 +220,7 @@ class MT5Broker(BaseBroker):
             tick_value_profit=getattr(sym, "trade_tick_value_profit", 0.0),
             tick_value_loss=getattr(sym, "trade_tick_value_loss", 0.0),
         )
+        self.estimated_commission_per_lot = 0.0
 
         log.warning("MT5 conectado | modo=%s balance=%.2f %s",
                     "REAL" if self.is_live else "DEMO", info.balance, info.currency)
@@ -244,6 +251,30 @@ class MT5Broker(BaseBroker):
         value = float(tick.ask if side == 1 else tick.bid)
         return value if value > 0 else None
 
+    def market_conditions(self) -> dict:
+        """Fresh quote and tradability checks shared by the autonomous analysis loop."""
+        mt5 = self.mt5
+        if mt5 is None:
+            return {"ok": False, "reason": "MT5 desconectado"}
+        terminal = mt5.terminal_info()
+        account = mt5.account_info()
+        info = mt5.symbol_info(self.spec.symbol)
+        tick = mt5.symbol_info_tick(self.spec.symbol)
+        if (terminal is None or account is None or info is None or tick is None
+                or not getattr(terminal, "connected", True) or tick.bid <= 0 or tick.ask < tick.bid):
+            return {"ok": False, "reason": "terminal/cuenta/símbolo/cotización incompletos"}
+        age = max(0.0, time_module.time() - float(getattr(tick, "time", 0)))
+        if age > 120:
+            return {"ok": False, "reason": "cotización obsoleta", "tick_age_seconds": age}
+        if not account.trade_allowed or not getattr(terminal, "trade_allowed", False):
+            return {"ok": False, "reason": "permisos de trading desactivados", "tick_age_seconds": age}
+        if int(getattr(info, "trade_mode", 4)) != 4:
+            return {"ok": False, "reason": "símbolo no está en modo de trading completo",
+                    "tick_age_seconds": age}
+        spread = (float(tick.ask) - float(tick.bid)) / self.spec.pip_size
+        return {"ok": True, "spread_pips": spread, "tick_age_seconds": age,
+                "bid": float(tick.bid), "ask": float(tick.ask)}
+
     def loss_per_lot(self, side: int, entry: float, sl: float) -> float | None:
         """Pérdida en divisa de cuenta calculada por el motor de MT5."""
         if self.mt5 is None or entry <= 0 or sl <= 0:
@@ -254,7 +285,16 @@ class MT5Broker(BaseBroker):
             return None
         return abs(float(amount))
 
-    def market_order(self, side, lots, sl, tp, price=None, time=None) -> Position | None:
+    def margin_for(self, side: int, lots: float, price: float) -> float | None:
+        if self.mt5 is None:
+            return None
+        order_type = self.mt5.ORDER_TYPE_BUY if side == 1 else self.mt5.ORDER_TYPE_SELL
+        value = self.mt5.order_calc_margin(order_type, self.spec.symbol, float(lots), float(price))
+        return float(value) if value is not None and math.isfinite(float(value)) and float(value) >= 0 else None
+
+    def market_order(self, side, lots, sl, tp, price=None, time=None, *,
+                     max_loss: float | None = None,
+                     max_spread_pips: float | None = None) -> Position | None:
         mt5 = self.mt5
         if mt5 is None or side not in (-1, 1) or not all(map(math.isfinite, [lots, sl, tp])):
             log.error("Orden rechazada: conexión, dirección o valores numéricos inválidos.")
@@ -278,8 +318,50 @@ class MT5Broker(BaseBroker):
         if tick.bid <= 0 or tick.ask < tick.bid:
             log.error("Cotización inválida para %s", self.spec.symbol)
             return None
+        if int(getattr(sym, "trade_mode", 4)) != 4:
+            log.warning("Orden bloqueada: símbolo fuera de modo de trading completo.")
+            return None
+        tick_age = max(0.0, time_module.time() - float(getattr(tick, "time", 0)))
+        if tick_age > 120:
+            log.warning("Orden bloqueada: cotización obsoleta (%.1f s).", tick_age)
+            return None
+        spread_pips = (float(tick.ask) - float(tick.bid)) / self.spec.pip_size
+        spread_limit = self.max_spread_pips if max_spread_pips is None else max_spread_pips
+        if not math.isfinite(spread_pips) or spread_pips > spread_limit:
+            log.warning("Orden bloqueada: spread %.3f pips excede límite %.3f.",
+                        spread_pips, spread_limit)
+            return None
+        account, terminal = mt5.account_info(), mt5.terminal_info()
+        if (account is None or terminal is None or not account.trade_allowed
+                or not getattr(terminal, "trade_allowed", False)):
+            log.warning("Orden bloqueada: cuenta/terminal sin permiso de trading.")
+            return None
+        if account.trade_mode == mt5.ACCOUNT_TRADE_MODE_REAL and not self.allow_live:
+            log.error("Orden bloqueada: cuenta REAL sin autorización del broker.")
+            return None
+        if (float(getattr(sym, "trade_tick_size", 0.0)) <= 0
+                or float(getattr(sym, "trade_tick_value_loss", 0.0)) <= 0):
+            log.error("Orden bloqueada: valor/tamaño del tick no verificable.")
+            return None
+        if max_loss is None or not math.isfinite(max_loss) or max_loss <= 0:
+            log.error("Orden bloqueada: presupuesto monetario de pérdida no proporcionado.")
+            return None
+        existing = mt5.positions_get(symbol=self.spec.symbol)
+        if existing is None:
+            log.warning("Orden bloqueada: no se pudo verificar la exposición existente.")
+            return None
+        if any(position.magic == MAGIC_NUMBER for position in existing):
+            log.warning("Orden bloqueada: ya hay una posición del agente en el símbolo.")
+            return None
         order_type = mt5.ORDER_TYPE_BUY if side == 1 else mt5.ORDER_TYPE_SELL
         px = tick.ask if side == 1 else tick.bid
+        tick_size = float(sym.trade_tick_size)
+        if side == 1:
+            sl = math.floor(float(sl) / tick_size) * tick_size
+            tp = math.ceil(float(tp) / tick_size) * tick_size
+        else:
+            sl = math.ceil(float(sl) / tick_size) * tick_size
+            tp = math.floor(float(tp) / tick_size) * tick_size
         min_distance = float(getattr(sym, "trade_stops_level", 0)) * float(getattr(sym, "point", 0))
         if sl <= 0 or tp <= 0 or (side == 1 and not (sl < px < tp)) or (side == -1 and not (tp < px < sl)):
             log.error("Orden rechazada: SL/TP no corresponden con dirección y cotización actual.")
@@ -297,8 +379,17 @@ class MT5Broker(BaseBroker):
         if risk is None or float(risk) >= 0:
             log.error("Orden rechazada: MT5 no pudo estimar pérdida al SL (%s).", risk)
             return None
+        if max_loss is not None:
+            adverse_px = px + side * self.deviation * float(getattr(sym, "point", 0))
+            adverse_risk = mt5.order_calc_profit(
+                order_type, self.spec.symbol, float(lots), adverse_px, float(sl)
+            )
+            commission = max(0.0, float(getattr(self, "estimated_commission_per_lot", 0.0))) * float(lots)
+            if (adverse_risk is None or float(adverse_risk) >= 0
+                    or abs(float(adverse_risk)) + commission > max_loss):
+                log.warning("Orden bloqueada: pérdida estimada con desviación/comisión excede el presupuesto.")
+                return None
         margin = mt5.order_calc_margin(order_type, self.spec.symbol, float(lots), px)
-        account = mt5.account_info()
         free_margin = getattr(account, "margin_free", None) if account is not None else None
         if margin is None or free_margin is None or float(margin) < 0 or float(margin) > float(free_margin):
             log.error("Orden rechazada: margen insuficiente o no verificable (estimado=%s, libre=%s).",
@@ -312,6 +403,16 @@ class MT5Broker(BaseBroker):
             log.error("Orden rechazada por order_check: %s", check)
             return None
         result = mt5.order_send(request)
+        partial_code = getattr(mt5, "TRADE_RETCODE_DONE_PARTIAL", -1)
+        if result is not None and result.retcode == partial_code:
+            log.error("Fill parcial; no se reintenta automáticamente. Revisar posición en MT5.")
+            partials = mt5.positions_get(symbol=self.spec.symbol) or []
+            own = [p for p in partials if p.magic == MAGIC_NUMBER]
+            if own:
+                p = own[0]
+                return Position(p.ticket, p.symbol, 1 if p.type == mt5.POSITION_TYPE_BUY else -1,
+                    p.volume, p.price_open, p.sl, p.tp, pd.Timestamp(p.time, unit="s", tz="UTC"))
+            return None
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
             log.error("Orden rechazada: %s", result)
             return None
@@ -329,6 +430,14 @@ class MT5Broker(BaseBroker):
     def close_position(self, position, price=None, time=None, reason="MANUAL") -> None:
         mt5 = self.mt5
         tick = mt5.symbol_info_tick(position.symbol)
+        sym = mt5.symbol_info(position.symbol)
+        account, terminal = mt5.account_info(), mt5.terminal_info()
+        if (tick is None or sym is None or account is None or terminal is None
+                or not account.trade_allowed or not getattr(terminal, "trade_allowed", False)
+                or tick.bid <= 0 or tick.ask < tick.bid
+                or time_module.time() - float(getattr(tick, "time", 0)) > 120):
+            log.error("Cierre bloqueado: conexión, permisos, especificaciones o cotización inválidos.")
+            return
         closing_buy = position.side == -1
         request = {
             "action": mt5.TRADE_ACTION_DEAL, "symbol": position.symbol, "volume": float(position.lots),
@@ -337,6 +446,10 @@ class MT5Broker(BaseBroker):
             "deviation": self.deviation, "magic": MAGIC_NUMBER, "comment": f"forex-ai {reason}",
             "type_time": mt5.ORDER_TIME_GTC, "type_filling": mt5.ORDER_FILLING_IOC,
         }
+        check = mt5.order_check(request)
+        if check is None or getattr(check, "retcode", None) != 0:
+            log.error("Cierre bloqueado por order_check: %s", check)
+            return
         result = mt5.order_send(request)
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
             log.error("No se pudo cerrar #%s: %s", position.ticket, result)

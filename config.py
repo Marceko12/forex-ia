@@ -122,6 +122,7 @@ class MarketConfig:
     symbol: str = "EURUSD"
     timeframe: str = "H1"  # M1 M5 M15 M30 H1 H4 D1
     n_bars: int = 20_000
+    max_spread_pips: float = 2.0  # hard filter; confirm/adjust only from broker evidence
 
 
 @dataclass

@@ -37,10 +37,20 @@ python app.py backtest --mode hybrid        # reglas + confirmación de la IA
 python app.py demo --broker paper           # simula trading sobre las últimas velas
 python app.py demo --broker mt5             # cuenta DEMO de MT5 (rechaza cuentas reales)
 python app.py demo --broker mt5 --live      # cuenta REAL (ver sección siguiente)
-python -m pytest -q                         # tests
+python app.py autonomous --symbol EURUSDmicro --cycle-minutes 15  # análisis periódico, sin órdenes
+python app.py autonomous --symbol EURUSDmicro --cycle-minutes 10  # intervalo alternativo
+python -m pytest -q -p no:cacheprovider    # tests
 ```
 
 Opciones útiles: `--symbol GBPUSD --timeframe M15 --mode hybrid --log-level DEBUG`.
+
+El comando `autonomous` usa M15 por defecto, lee velas cerradas y evalúa reglas, IA e híbrida
+con entrenamiento/validación/test cronológicos. Solo selecciona una estrategia si supera
+los filtros en cada subperiodo de validación; el test queda reservado para diagnóstico.
+Si ninguna califica, registra `NO TRADE`. Las decisiones van a `logs/autonomous_decisions.jsonl`
+y la vela procesada y límites de riesgo a `logs/autonomous_state.json`. No ejecuta órdenes
+por defecto. `--execute` habilita órdenes de la sesión MT5 conectada; una cuenta REAL sigue
+requiriendo `--live`, el gate de entorno y la confirmación escrita existentes.
 
 ## Modo real (dinero real)
 
@@ -71,6 +81,8 @@ probarse contra un terminal real** en este entorno; valídala primero en demo.
 | `src/risk_manager.py` | 1 % de riesgo por operación, límite diario 3 %, drawdown máx. 10 % (kill-switch), 1 posición, 5 ops/día. |
 | `src/backtester.py` | Entrada en apertura siguiente, costes supuestos, slippage configurable, SL antes que TP si se tocan a la vez y drawdown intravela aproximado; swaps no incluidos. |
 | `src/broker_demo.py` | `PaperBroker` (simulador) y `MT5DemoBroker` (rechaza cuentas no demo). |
+| `src/strategy_evaluator.py` | Comparación temporal de reglas/IA/híbrida y abstención si validación no aporta evidencia estable. |
+| `src/autonomous_agent.py` | Ciclo periódico, filtro de datos/spread, gestión de vela duplicada, stops, estado persistente y log de decisiones. |
 | `src/logger.py` | `logs/app.log` (rotativo) y `logs/trades.csv` (una fila por operación). |
 
 El backtest entrena el modelo con el 70 % inicial y evalúa en el 30 % final (**fuera de muestra**).

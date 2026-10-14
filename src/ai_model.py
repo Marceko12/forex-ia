@@ -116,7 +116,7 @@ class AIModel:
         self.pipeline = self._new_pipeline()
         self.pipeline.fit(X_tr, y_tr)
 
-        proba = self.pipeline.predict_proba(X_val)[:, 1]
+        proba = self._probability_up(self.pipeline, X_val)
         pred = (proba >= 0.5).astype(int)
         has_both = y_val.nunique() > 1
         self.metrics = {
@@ -144,8 +144,14 @@ class AIModel:
         valid = X.notna().all(axis=1)
         out = pd.Series(0.5, index=df.index, name="proba_up")
         if valid.any():
-            out.loc[valid] = self.pipeline.predict_proba(X.loc[valid])[:, 1]
+            out.loc[valid] = self._probability_up(self.pipeline, X.loc[valid])
         return out
+
+    @staticmethod
+    def _probability_up(pipeline: Pipeline, features: pd.DataFrame) -> np.ndarray:
+        probabilities = pipeline.predict_proba(features)
+        classes = list(pipeline.named_steps["clf"].classes_)
+        return probabilities[:, classes.index(1)] if 1 in classes else np.zeros(len(features))
 
     # ------------------------------------------------------------------ #
     def save(self, path: Path = MODEL_PATH) -> Path:

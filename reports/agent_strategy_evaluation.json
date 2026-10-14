@@ -1,0 +1,305 @@
+{
+  "data": {
+    "path": "data/market_data.csv",
+    "sha256": "512d65e10248a09d7a9b592aa90201c31226cef99ed49367cb6b2e9fb1f13cc1",
+    "rows": 5000,
+    "first": "2026-07-31T16:45:00+00:00",
+    "last": "2026-10-13T18:30:00+00:00",
+    "source_authenticated": false
+  },
+  "cost_assumptions": {
+    "spread_pips": 1.0,
+    "commission_per_lot": 7.0,
+    "slippage_pips_each_side": 0.2,
+    "account_symbol_spec_confirmed": false
+  },
+  "selection": {
+    "selected": null,
+    "action_if_current_signal": "NO TRADE",
+    "reason": "no_candidate_passed_all_validation_periods",
+    "selection_uses": "3 chronological validation subperiods only",
+    "test_use": "diagnostic only; excluded from strategy selection"
+  },
+  "candidate_metrics": {
+    "rules": {
+      "validation_periods": [
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9700.82,
+          "total_return_pct": -2.99,
+          "max_drawdown_pct": -2.99,
+          "sharpe_ratio": -22.44,
+          "sortino_ratio": -13.54,
+          "n_trades": 8,
+          "total_costs": 285.6,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -37.4,
+          "expectancy": -37.4,
+          "avg_bars_in_trade": 16.5
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9375.88,
+          "total_return_pct": -6.24,
+          "max_drawdown_pct": -6.24,
+          "sharpe_ratio": -320.5,
+          "sortino_ratio": -15.86,
+          "n_trades": 18,
+          "total_costs": 642.6,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -34.67,
+          "expectancy": -34.67,
+          "avg_bars_in_trade": 8.6
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9460.64,
+          "total_return_pct": -5.39,
+          "max_drawdown_pct": -5.48,
+          "sharpe_ratio": -29.74,
+          "sortino_ratio": -14.41,
+          "n_trades": 15,
+          "total_costs": 535.5,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -35.96,
+          "expectancy": -35.96,
+          "avg_bars_in_trade": 11.3
+        }
+      ],
+      "test_diagnostic_only": {
+        "initial_balance": 10000.0,
+        "final_equity": 9006.71,
+        "total_return_pct": -9.93,
+        "max_drawdown_pct": -10.05,
+        "sharpe_ratio": -16.95,
+        "sortino_ratio": -11.87,
+        "n_trades": 29,
+        "total_costs": 1035.3,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "avg_win": 0.0,
+        "avg_loss": -34.25,
+        "expectancy": -34.25,
+        "avg_bars_in_trade": 6.9,
+        "halted_reason": "Drawdown máximo alcanzado (10.1% >= 10.0%)"
+      },
+      "validation_stability": {
+        "positive_periods": 0,
+        "period_count": 3,
+        "return_range_pct": 3.25,
+        "profitable_periods_required": 3
+      }
+    },
+    "ai": {
+      "validation_periods": [
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9479.63,
+          "total_return_pct": -5.2,
+          "max_drawdown_pct": -5.27,
+          "sharpe_ratio": -37.03,
+          "sortino_ratio": -14.88,
+          "n_trades": 15,
+          "total_costs": 535.5,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -34.69,
+          "expectancy": -34.69,
+          "avg_bars_in_trade": 16.1
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9384.03,
+          "total_return_pct": -6.16,
+          "max_drawdown_pct": -6.16,
+          "sharpe_ratio": -68.53,
+          "sortino_ratio": -15.6,
+          "n_trades": 18,
+          "total_costs": 642.6,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -34.22,
+          "expectancy": -34.22,
+          "avg_bars_in_trade": 11.2
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9343.15,
+          "total_return_pct": -6.57,
+          "max_drawdown_pct": -6.57,
+          "sharpe_ratio": -86.11,
+          "sortino_ratio": -15.68,
+          "n_trades": 18,
+          "total_costs": 642.6,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -36.49,
+          "expectancy": -36.49,
+          "avg_bars_in_trade": 12.8
+        }
+      ],
+      "test_diagnostic_only": {
+        "initial_balance": 10000.0,
+        "final_equity": 8973.81,
+        "total_return_pct": -10.26,
+        "max_drawdown_pct": -10.26,
+        "sharpe_ratio": -14.54,
+        "sortino_ratio": -11.03,
+        "n_trades": 29,
+        "total_costs": 1035.3,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "avg_win": 0.0,
+        "avg_loss": -35.39,
+        "expectancy": -35.39,
+        "avg_bars_in_trade": 9.0,
+        "halted_reason": "Drawdown máximo alcanzado (10.2% >= 10.0%)"
+      },
+      "validation_stability": {
+        "positive_periods": 0,
+        "period_count": 3,
+        "return_range_pct": 1.37,
+        "profitable_periods_required": 3
+      }
+    },
+    "hybrid": {
+      "validation_periods": [
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9813.66,
+          "total_return_pct": -1.86,
+          "max_drawdown_pct": -1.86,
+          "sharpe_ratio": -21.77,
+          "sortino_ratio": -13.42,
+          "n_trades": 5,
+          "total_costs": 178.5,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -37.27,
+          "expectancy": -37.27,
+          "avg_bars_in_trade": 22.4
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9569.76,
+          "total_return_pct": -4.3,
+          "max_drawdown_pct": -4.33,
+          "sharpe_ratio": -124.02,
+          "sortino_ratio": -15.79,
+          "n_trades": 12,
+          "total_costs": 428.4,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -35.85,
+          "expectancy": -35.85,
+          "avg_bars_in_trade": 10.2
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9784.01,
+          "total_return_pct": -2.16,
+          "max_drawdown_pct": -2.24,
+          "sharpe_ratio": -16.79,
+          "sortino_ratio": -12.3,
+          "n_trades": 6,
+          "total_costs": 214.2,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -36.0,
+          "expectancy": -36.0,
+          "avg_bars_in_trade": 13.7
+        }
+      ],
+      "test_diagnostic_only": {
+        "initial_balance": 10000.0,
+        "final_equity": 9273.07,
+        "total_return_pct": -7.27,
+        "max_drawdown_pct": -7.29,
+        "sharpe_ratio": -34.07,
+        "sortino_ratio": -14.52,
+        "n_trades": 21,
+        "total_costs": 749.7,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "avg_win": 0.0,
+        "avg_loss": -34.61,
+        "expectancy": -34.61,
+        "avg_bars_in_trade": 11.4
+      },
+      "validation_stability": {
+        "positive_periods": 0,
+        "period_count": 3,
+        "return_range_pct": 2.4399999999999995,
+        "profitable_periods_required": 3
+      }
+    },
+    "no_trade_reference": {
+      "validation_periods": [
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 10000.0,
+          "total_return_pct": 0.0,
+          "max_drawdown_pct": 0.0,
+          "n_trades": 0,
+          "total_costs": 0.0,
+          "profit_factor": 0.0,
+          "expectancy": 0.0
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 10000.0,
+          "total_return_pct": 0.0,
+          "max_drawdown_pct": 0.0,
+          "n_trades": 0,
+          "total_costs": 0.0,
+          "profit_factor": 0.0,
+          "expectancy": 0.0
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 10000.0,
+          "total_return_pct": 0.0,
+          "max_drawdown_pct": 0.0,
+          "n_trades": 0,
+          "total_costs": 0.0,
+          "profit_factor": 0.0,
+          "expectancy": 0.0
+        }
+      ],
+      "test_diagnostic_only": {
+        "initial_balance": 10000.0,
+        "final_equity": 10000.0,
+        "total_return_pct": 0.0,
+        "max_drawdown_pct": 0.0,
+        "n_trades": 0,
+        "total_costs": 0.0,
+        "profit_factor": 0.0,
+        "expectancy": 0.0
+      },
+      "validation_stability": {
+        "positive_periods": 0,
+        "period_count": 3,
+        "return_range_pct": 0.0,
+        "profitable_periods_required": 3
+      }
+    }
+  },
+  "limits": [
+    "CSV provenance is locally supported but not authenticated.",
+    "EURUSDmicro contract/volume and all costs are assumptions, not queried MT5 specifications.",
+    "No order or MT5 connection is performed by this report script.",
+    "A passing historical filter would not establish a durable edge or guarantee outcomes."
+  ]
+}

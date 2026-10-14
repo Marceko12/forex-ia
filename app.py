@@ -16,6 +16,7 @@ import argparse
 import logging
 import sys
 import time
+from pathlib import Path
 
 import pandas as pd
 
@@ -24,12 +25,14 @@ import os
 from config import (LIVE_CONFIRM_PHRASE, LIVE_ENV_VALUE, LIVE_ENV_VAR, MARKET_DATA_CSV, MODEL_PATH,
                     Settings, get_settings)
 from src.ai_model import AIModel
+from src.autonomous_agent import AutonomousAgent
 from src.backtester import Backtester, format_metrics
 from src.broker_demo import BaseBroker, MT5Broker, PaperBroker
 from src.indicators import add_all_indicators
 from src.logger import replace_trades, setup_logging
 from src.market_data import fetch_mt5, get_market_data, load_csv, save_csv
 from src.risk_manager import RiskManager
+from src.strategy_evaluator import StrategyEvaluator
 from src.strategy import build_signals, side_name
 
 log = logging.getLogger("forex_ai")
@@ -189,7 +192,13 @@ def try_open_trade(broker: BaseBroker, risk: RiskManager, settings: Settings, no
         log.warning("Tamaño 0: el riesgo mínimo del broker excede el límite configurado.")
         return False
 
-    pos = broker.market_order(signal, lots, sl, tp, price=price, time=now)
+    if hasattr(broker, "estimated_commission_per_lot"):
+        broker.estimated_commission_per_lot = float(settings.backtest.commission_per_lot)
+    pos = broker.market_order(
+        signal, lots, sl, tp, price=price, time=now,
+        max_loss=broker.equity() * risk.cfg.risk_per_trade,
+        max_spread_pips=settings.market.max_spread_pips,
+    )
     if pos is not None:
         risk.register_open()
         return True
@@ -297,6 +306,35 @@ def cmd_demo(args, settings: Settings) -> None:
         run_paper_replay(settings, ind, signals, args.replay_bars)
 
 
+def cmd_autonomous(args, settings: Settings) -> None:
+    if args.live and not args.execute:
+        raise ValueError("--live requiere --execute; sin --execute el ciclo es solo análisis.")
+    if args.live:
+        confirm_live_trading()
+        settings.risk = settings.live_risk
+    if not args.execute:
+        log.warning("Ciclo autónomo en SOLO ANÁLISIS: no se enviarán órdenes.")
+    broker = MT5Broker(settings.mt5, settings.spec, allow_live=bool(args.live))
+    broker.connect()
+    try:
+        settings.market.symbol = broker.spec.symbol
+        if args.live and not broker.is_live:
+            raise RuntimeError("--live fue solicitado, pero la sesión MT5 abierta no es REAL.")
+        evaluator = StrategyEvaluator(broker.spec, settings.backtest, settings.risk, settings.strategy)
+        risk = RiskManager(settings.risk, broker.equity())
+        agent = AutonomousAgent(
+            settings, broker, evaluator,
+            fetch_data=lambda: fetch_mt5(settings, n_bars=max(5_000, settings.market.n_bars), start_pos=1),
+            log_path=Path("logs/autonomous_decisions.jsonl"),
+            state_path=Path("logs/autonomous_state.json"),
+            execute=args.execute,
+        )
+        agent.attach_risk_manager(risk)
+        agent.run_forever(args.cycle_minutes)
+    finally:
+        broker.disconnect()
+
+
 # --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
@@ -329,6 +367,13 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--poll", type=int, default=30, help="Segundos entre consultas en modo mt5")
     m.add_argument("--live", action="store_true",
                    help="Permite cuenta REAL (exige ALLOW_LIVE_TRADING en .env + confirmación escrita)")
+    a = sub.add_parser("autonomous", help="Análisis autónomo periódico; solo análisis por defecto")
+    a.add_argument("--symbol", help="Símbolo exacto de MT5")
+    a.add_argument("--timeframe", default="M15", choices=["M5", "M15", "M30", "H1", "H4"])
+    a.add_argument("--mode", default="hybrid", choices=["rules", "ai", "hybrid"])
+    a.add_argument("--cycle-minutes", type=int, choices=[10, 15], default=15)
+    a.add_argument("--execute", action="store_true", help="Autoriza órdenes del broker conectado")
+    a.add_argument("--live", action="store_true", help="Cuenta REAL; exige gate y frase de confirmación")
     return p
 
 
@@ -337,7 +382,8 @@ def main(argv: list[str] | None = None) -> int:
     setup_logging(args.log_level)
     settings = apply_cli_overrides(get_settings(), args)
 
-    handlers = {"download": cmd_download, "train": cmd_train, "backtest": cmd_backtest, "demo": cmd_demo}
+    handlers = {"download": cmd_download, "train": cmd_train, "backtest": cmd_backtest,
+                "demo": cmd_demo, "autonomous": cmd_autonomous}
     try:
         handlers[args.command](args, settings)
         return 0

@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import app
 import src.broker_demo as bd
+import time
 from config import LIVE_CONFIRM_PHRASE, LIVE_ENV_VALUE, LIVE_ENV_VAR, MT5Config, get_symbol_spec
 
 
@@ -11,11 +12,12 @@ class FakeMT5:
     ORDER_TYPE_BUY, ORDER_TYPE_SELL = 0, 1
     TRADE_ACTION_DEAL, ORDER_TIME_GTC, ORDER_FILLING_IOC = 1, 0, 1
     TRADE_RETCODE_DONE = 10009
+    TRADE_RETCODE_DONE_PARTIAL = 10010
 
     def __init__(self, trade_mode=0, currency="USD", trade_allowed=True, algo_allowed=True):
         self.info = SimpleNamespace(trade_mode=trade_mode, currency=currency, trade_allowed=trade_allowed,
                                     login=1, server="X", balance=1000.0, equity=1000.0, margin_free=1000.0)
-        self.term = SimpleNamespace(trade_allowed=algo_allowed)
+        self.term = SimpleNamespace(trade_allowed=algo_allowed, connected=True)
         self.shutdown_called = False
         self.order_check_retcode = 0
         self.order_send_calls = 0
@@ -41,8 +43,9 @@ class FakeMT5:
     def symbol_select(self, *a): return True
     def symbol_info(self, s): return SimpleNamespace(volume_min=0.01, volume_max=50.0, volume_step=0.01,
                                                      trade_contract_size=100000, point=0.00001,
-                                                     trade_stops_level=10)
-    def symbol_info_tick(self, s): return SimpleNamespace(bid=1.10000, ask=1.10010)
+                                                     trade_stops_level=10, trade_mode=4,
+                                                     trade_tick_size=0.00001, trade_tick_value_loss=1.0)
+    def symbol_info_tick(self, s): return SimpleNamespace(bid=1.10000, ask=1.10010, time=time.time())
     def order_calc_profit(self, kind, symbol, volume, opening, closing):
         return -abs(closing - opening) * 100000 * volume
     def order_calc_margin(self, kind, symbol, volume, price): return 10.0
@@ -53,6 +56,7 @@ class FakeMT5:
         self.order_send_calls += 1
         return SimpleNamespace(retcode=self.TRADE_RETCODE_DONE, order=123, price=request["price"])
     def shutdown(self): self.shutdown_called = True
+    def positions_get(self, **kwargs): return []
 
 
 def _connect(fake, allow_live):
@@ -125,7 +129,7 @@ def test_order_is_sent_only_after_successful_preflight(monkeypatch):
     fake = FakeMT5()
     broker = _connect(fake, allow_live=False)
     monkeypatch.setattr(bd, "append_trades", lambda _: None)
-    position = broker.market_order(1, 0.01, sl=1.098, tp=1.104)
+    position = broker.market_order(1, 0.01, sl=1.098, tp=1.104, max_loss=100)
     assert position is not None
     assert len(fake.requests) == 1 and fake.order_send_calls == 1
 
@@ -135,8 +139,25 @@ def test_failed_order_check_never_sends_order(monkeypatch):
     fake.order_check_retcode = 10016
     broker = _connect(fake, allow_live=False)
     monkeypatch.setattr(bd, "append_trades", lambda _: None)
-    assert broker.market_order(1, 0.01, sl=1.098, tp=1.104) is None
+    assert broker.market_order(1, 0.01, sl=1.098, tp=1.104, max_loss=100) is None
     assert len(fake.requests) == 1 and fake.order_send_calls == 0
+
+
+def test_order_is_blocked_when_spread_exceeds_limit():
+    fake = FakeMT5()
+    broker = _connect(fake, allow_live=False)
+    assert broker.market_order(1, 0.01, sl=1.098, tp=1.104, max_spread_pips=0.5) is None
+    assert fake.order_send_calls == 0
+    broker.disconnect()
+
+
+def test_order_is_blocked_when_worst_case_loss_exceeds_budget():
+    fake = FakeMT5()
+    broker = _connect(fake, allow_live=False)
+    broker.estimated_commission_per_lot = 0
+    assert broker.market_order(1, 0.01, sl=1.098, tp=1.104, max_loss=0.01) is None
+    assert fake.order_send_calls == 0
+    broker.disconnect()
 
 
 # ------------------------- confirmación escrita --------------------------- #
