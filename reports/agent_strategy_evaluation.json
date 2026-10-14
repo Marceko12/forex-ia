@@ -21,7 +21,16 @@
     "test_use": "diagnostic only; excluded from strategy selection"
   },
   "candidate_metrics": {
-    "rules": {
+    "rules_balanced": {
+      "recipe": {
+        "mode": "rules",
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "ai_buy_threshold": 0.55,
+        "ai_sell_threshold": 0.45,
+        "sl_atr_mult": 1.5,
+        "rr_ratio": 2.0
+      },
       "validation_periods": [
         {
           "initial_balance": 10000.0,
@@ -96,7 +105,268 @@
         "profitable_periods_required": 3
       }
     },
-    "ai": {
+    "rules_selective": {
+      "recipe": {
+        "mode": "rules",
+        "rsi_overbought": 65.0,
+        "rsi_oversold": 35.0,
+        "ai_buy_threshold": 0.55,
+        "ai_sell_threshold": 0.45,
+        "sl_atr_mult": 1.5,
+        "rr_ratio": 2.0
+      },
+      "validation_periods": [
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9738.94,
+          "total_return_pct": -2.61,
+          "max_drawdown_pct": -2.61,
+          "sharpe_ratio": -25.06,
+          "sortino_ratio": -13.92,
+          "n_trades": 7,
+          "total_costs": 249.9,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -37.29,
+          "expectancy": -37.29,
+          "avg_bars_in_trade": 18.4
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9380.12,
+          "total_return_pct": -6.2,
+          "max_drawdown_pct": -6.35,
+          "sharpe_ratio": -215.61,
+          "sortino_ratio": -15.85,
+          "n_trades": 18,
+          "total_costs": 642.6,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -34.44,
+          "expectancy": -34.44,
+          "avg_bars_in_trade": 8.6
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9461.39,
+          "total_return_pct": -5.39,
+          "max_drawdown_pct": -5.47,
+          "sharpe_ratio": -29.77,
+          "sortino_ratio": -14.41,
+          "n_trades": 15,
+          "total_costs": 535.5,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -35.91,
+          "expectancy": -35.91,
+          "avg_bars_in_trade": 11.1
+        }
+      ],
+      "test_diagnostic_only": {
+        "initial_balance": 10000.0,
+        "final_equity": 8962.28,
+        "total_return_pct": -10.38,
+        "max_drawdown_pct": -10.38,
+        "sharpe_ratio": -18.36,
+        "sortino_ratio": -12.27,
+        "n_trades": 29,
+        "total_costs": 1035.3,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "avg_win": 0.0,
+        "avg_loss": -35.78,
+        "expectancy": -35.78,
+        "avg_bars_in_trade": 7.0,
+        "halted_reason": "Drawdown máximo alcanzado (10.3% >= 10.0%)"
+      },
+      "validation_stability": {
+        "positive_periods": 0,
+        "period_count": 3,
+        "return_range_pct": 3.5900000000000003,
+        "profitable_periods_required": 3
+      }
+    },
+    "rules_wide_stop": {
+      "recipe": {
+        "mode": "rules",
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "ai_buy_threshold": 0.55,
+        "ai_sell_threshold": 0.45,
+        "sl_atr_mult": 2.0,
+        "rr_ratio": 2.0
+      },
+      "validation_periods": [
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9735.18,
+          "total_return_pct": -2.65,
+          "max_drawdown_pct": -2.65,
+          "sharpe_ratio": -25.42,
+          "sortino_ratio": -13.96,
+          "n_trades": 7,
+          "total_costs": 249.9,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -37.83,
+          "expectancy": -37.83,
+          "avg_bars_in_trade": 22.3
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9407.75,
+          "total_return_pct": -5.92,
+          "max_drawdown_pct": -6.0,
+          "sharpe_ratio": -176.06,
+          "sortino_ratio": -15.83,
+          "n_trades": 17,
+          "total_costs": 606.9,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -34.84,
+          "expectancy": -34.84,
+          "avg_bars_in_trade": 11.1
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9629.35,
+          "total_return_pct": -3.71,
+          "max_drawdown_pct": -3.79,
+          "sharpe_ratio": -18.39,
+          "sortino_ratio": -12.72,
+          "n_trades": 10,
+          "total_costs": 357.0,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -37.06,
+          "expectancy": -37.06,
+          "avg_bars_in_trade": 21.8
+        }
+      ],
+      "test_diagnostic_only": {
+        "initial_balance": 10000.0,
+        "final_equity": 8980.64,
+        "total_return_pct": -10.19,
+        "max_drawdown_pct": -10.19,
+        "sharpe_ratio": -20.98,
+        "sortino_ratio": -12.9,
+        "n_trades": 29,
+        "total_costs": 1035.3,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "avg_win": 0.0,
+        "avg_loss": -35.15,
+        "expectancy": -35.15,
+        "avg_bars_in_trade": 12.6,
+        "halted_reason": "Drawdown máximo alcanzado (10.2% >= 10.0%)"
+      },
+      "validation_stability": {
+        "positive_periods": 0,
+        "period_count": 3,
+        "return_range_pct": 3.27,
+        "profitable_periods_required": 3
+      }
+    },
+    "rules_rr_1_5": {
+      "recipe": {
+        "mode": "rules",
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "ai_buy_threshold": 0.55,
+        "ai_sell_threshold": 0.45,
+        "sl_atr_mult": 1.5,
+        "rr_ratio": 1.5
+      },
+      "validation_periods": [
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9634.65,
+          "total_return_pct": -3.65,
+          "max_drawdown_pct": -3.65,
+          "sharpe_ratio": -21.64,
+          "sortino_ratio": -13.4,
+          "n_trades": 10,
+          "total_costs": 357.0,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -36.54,
+          "expectancy": -36.54,
+          "avg_bars_in_trade": 12.3
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9368.09,
+          "total_return_pct": -6.32,
+          "max_drawdown_pct": -6.32,
+          "sharpe_ratio": -457.97,
+          "sortino_ratio": -15.87,
+          "n_trades": 18,
+          "total_costs": 642.6,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -35.11,
+          "expectancy": -35.11,
+          "avg_bars_in_trade": 5.8
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9475.27,
+          "total_return_pct": -5.25,
+          "max_drawdown_pct": -5.33,
+          "sharpe_ratio": -29.73,
+          "sortino_ratio": -14.41,
+          "n_trades": 15,
+          "total_costs": 535.5,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -34.98,
+          "expectancy": -34.98,
+          "avg_bars_in_trade": 8.8
+        }
+      ],
+      "test_diagnostic_only": {
+        "initial_balance": 10000.0,
+        "final_equity": 9002.74,
+        "total_return_pct": -9.97,
+        "max_drawdown_pct": -10.02,
+        "sharpe_ratio": -15.64,
+        "sortino_ratio": -11.44,
+        "n_trades": 28,
+        "total_costs": 999.6,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "avg_win": 0.0,
+        "avg_loss": -35.62,
+        "expectancy": -35.62,
+        "avg_bars_in_trade": 4.6,
+        "halted_reason": "Drawdown máximo alcanzado (10.0% >= 10.0%)"
+      },
+      "validation_stability": {
+        "positive_periods": 0,
+        "period_count": 3,
+        "return_range_pct": 2.6700000000000004,
+        "profitable_periods_required": 3
+      }
+    },
+    "ai_balanced": {
+      "recipe": {
+        "mode": "ai",
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "ai_buy_threshold": 0.55,
+        "ai_sell_threshold": 0.45,
+        "sl_atr_mult": 1.5,
+        "rr_ratio": 2.0
+      },
       "validation_periods": [
         {
           "initial_balance": 10000.0,
@@ -171,7 +441,16 @@
         "profitable_periods_required": 3
       }
     },
-    "hybrid": {
+    "hybrid_balanced": {
+      "recipe": {
+        "mode": "hybrid",
+        "rsi_overbought": 70.0,
+        "rsi_oversold": 30.0,
+        "ai_buy_threshold": 0.55,
+        "ai_sell_threshold": 0.45,
+        "sl_atr_mult": 1.5,
+        "rr_ratio": 2.0
+      },
       "validation_periods": [
         {
           "initial_balance": 10000.0,
@@ -242,6 +521,89 @@
         "positive_periods": 0,
         "period_count": 3,
         "return_range_pct": 2.4399999999999995,
+        "profitable_periods_required": 3
+      }
+    },
+    "hybrid_selective": {
+      "recipe": {
+        "mode": "hybrid",
+        "rsi_overbought": 65.0,
+        "rsi_oversold": 35.0,
+        "ai_buy_threshold": 0.58,
+        "ai_sell_threshold": 0.42,
+        "sl_atr_mult": 1.5,
+        "rr_ratio": 2.0
+      },
+      "validation_periods": [
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9961.96,
+          "total_return_pct": -0.38,
+          "max_drawdown_pct": -0.38,
+          "sharpe_ratio": -7.94,
+          "sortino_ratio": -7.94,
+          "n_trades": 1,
+          "total_costs": 35.7,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -38.04,
+          "expectancy": -38.04,
+          "avg_bars_in_trade": 9.0
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9681.03,
+          "total_return_pct": -3.19,
+          "max_drawdown_pct": -3.21,
+          "sharpe_ratio": -51.67,
+          "sortino_ratio": -15.4,
+          "n_trades": 9,
+          "total_costs": 321.3,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -35.44,
+          "expectancy": -35.44,
+          "avg_bars_in_trade": 12.3
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9858.68,
+          "total_return_pct": -1.41,
+          "max_drawdown_pct": -1.48,
+          "sharpe_ratio": -100.39,
+          "sortino_ratio": -15.73,
+          "n_trades": 4,
+          "total_costs": 142.8,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -35.33,
+          "expectancy": -35.33,
+          "avg_bars_in_trade": 13.2
+        }
+      ],
+      "test_diagnostic_only": {
+        "initial_balance": 10000.0,
+        "final_equity": 9664.04,
+        "total_return_pct": -3.36,
+        "max_drawdown_pct": -3.44,
+        "sharpe_ratio": -16.19,
+        "sortino_ratio": -11.62,
+        "n_trades": 10,
+        "total_costs": 357.0,
+        "win_rate_pct": 0.0,
+        "profit_factor": 0.0,
+        "avg_win": 0.0,
+        "avg_loss": -33.59,
+        "expectancy": -33.59,
+        "avg_bars_in_trade": 11.9
+      },
+      "validation_stability": {
+        "positive_periods": 0,
+        "period_count": 3,
+        "return_range_pct": 2.81,
         "profitable_periods_required": 3
       }
     },

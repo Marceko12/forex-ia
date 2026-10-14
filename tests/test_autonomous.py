@@ -229,6 +229,15 @@ def test_cycle_rejects_unsupported_interval(tmp_path):
         agent.run_forever(12, stop=lambda: True)
 
 
+def test_autonomous_cycle_blocks_timeframes_below_m15(tmp_path):
+    agent, _, evaluator = _agent(tmp_path)
+    agent.settings.market.timeframe = "M5"
+    result = agent.cycle()
+    assert result.action == "NO TRADE"
+    assert "M15 o superior" in result.reasons[0]
+    assert evaluator.calls == 0
+
+
 def test_strategy_evaluation_abstains_without_history(tmp_path):
     from config import BacktestConfig, StrategyConfig
     from src.strategy_evaluator import StrategyEvaluator
@@ -238,6 +247,54 @@ def test_strategy_evaluation_abstains_without_history(tmp_path):
     result = evaluator.evaluate(ind, Settings(mt5=None).model)
     assert result.selected is None
     assert result.reason == "insufficient_history"
+
+
+def test_strategy_evaluator_selects_from_bounded_recipes_without_test_tuning(monkeypatch):
+    from types import SimpleNamespace
+    from config import BacktestConfig, StrategyConfig
+    import src.strategy_evaluator as evaluator_module
+    from src.strategy_evaluator import StrategyEvaluator
+
+    class FakeModel:
+        def __init__(self, config):
+            pass
+
+        def train(self, frame):
+            return {"train_rows": len(frame)}
+
+        def predict_proba(self, frame):
+            return pd.Series(.6, index=frame.index)
+
+    class FakeBacktester:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def run(self, part, signals):
+            # Deliberately make held-out test lose: validation selection must
+            # still depend only on its three independent validation blocks.
+            positive = len(part) <= 100
+            return SimpleNamespace(metrics={
+                "n_trades": 6, "expectancy": 1.0 if positive else -5.0,
+                "profit_factor": 1.2 if positive else .4,
+                "total_return_pct": 1.0 if positive else -5.0,
+                "max_drawdown_pct": -1.0 if positive else -6.0,
+            })
+
+    monkeypatch.setattr(evaluator_module, "AIModel", FakeModel)
+    monkeypatch.setattr(evaluator_module, "Backtester", FakeBacktester)
+    idx = pd.date_range("2025-01-01", periods=1500, freq="15min", tz="UTC")
+    close = pd.Series(1.1 + np.arange(1500) * .00001, index=idx)
+    ind = pd.DataFrame({"open": close, "high": close + .0002, "low": close - .0002,
+                        "close": close, "volume": 1, "ema_fast": close,
+                        "ema_slow": close - .0001, "ema_trend": close - .0002,
+                        "rsi": 55.0, "macd_hist": .00001, "atr": .0002}, index=idx)
+    evaluator = StrategyEvaluator(SymbolSpec("EURUSD", .0001), BacktestConfig(),
+                                  RiskConfig(), StrategyConfig())
+    result = evaluator.evaluate(ind, object())
+    assert result.selected is not None
+    assert result.selected_config is not None
+    assert result.strategies[result.selected]["test_diagnostic_only"]["total_return_pct"] == -5.0
+    assert len(result.strategies) == len(evaluator.CANDIDATE_RECIPES) + 1
 
 
 @pytest.mark.parametrize("symbol,min_lot,contract,tick_value", [

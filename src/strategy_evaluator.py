@@ -18,6 +18,7 @@ class Evaluation:
     strategies: dict
     model: AIModel | None
     signals: pd.DataFrame
+    selected_config: StrategyConfig | None = None
 
 
 class StrategyEvaluator:
@@ -28,7 +29,17 @@ class StrategyEvaluator:
     profit-factor, return and drawdown filters or the result is NO TRADE.
     """
 
-    CANDIDATES = ("rules", "ai", "hybrid")
+    # Bounded, predeclared family: the agent may synthesize/select a recipe,
+    # but does not search an unbounded parameter space or inspect test results.
+    CANDIDATE_RECIPES = (
+        ("rules_balanced", "rules", 70.0, 30.0, 0.55, 0.45, 1.5, 2.0),
+        ("rules_selective", "rules", 65.0, 35.0, 0.55, 0.45, 1.5, 2.0),
+        ("rules_wide_stop", "rules", 70.0, 30.0, 0.55, 0.45, 2.0, 2.0),
+        ("rules_rr_1_5", "rules", 70.0, 30.0, 0.55, 0.45, 1.5, 1.5),
+        ("ai_balanced", "ai", 70.0, 30.0, 0.55, 0.45, 1.5, 2.0),
+        ("hybrid_balanced", "hybrid", 70.0, 30.0, 0.55, 0.45, 1.5, 2.0),
+        ("hybrid_selective", "hybrid", 65.0, 35.0, 0.58, 0.42, 1.5, 2.0),
+    )
 
     def __init__(self, spec: SymbolSpec, backtest: BacktestConfig, risk: RiskConfig,
                  strategy: StrategyConfig, min_trades_per_period: int = 5,
@@ -54,13 +65,21 @@ class StrategyEvaluator:
         probabilities = model.predict_proba(ind)
         signals: dict[str, pd.Series] = {}
         metrics: dict[str, dict] = {}
+        candidate_configs: dict[str, StrategyConfig] = {}
         val_blocks = [part for part in (validation.iloc[:len(validation)//3],
                                         validation.iloc[len(validation)//3:2*len(validation)//3],
                                         validation.iloc[2*len(validation)//3:]) if len(part)]
-        for name in self.CANDIDATES:
+        for name, mode, overbought, oversold, buy, sell, sl_atr, rr in self.CANDIDATE_RECIPES:
             candidate_cfg = StrategyConfig(**vars(self.strategy))
-            candidate_cfg.mode = name
-            proba = probabilities if name in ("ai", "hybrid") else None
+            candidate_cfg.mode = mode
+            candidate_cfg.rsi_overbought = overbought
+            candidate_cfg.rsi_oversold = oversold
+            candidate_cfg.ai_buy_threshold = buy
+            candidate_cfg.ai_sell_threshold = sell
+            candidate_cfg.sl_atr_mult = sl_atr
+            candidate_cfg.rr_ratio = rr
+            candidate_configs[name] = candidate_cfg
+            proba = probabilities if mode in ("ai", "hybrid") else None
             signal = build_signals(ind, proba, candidate_cfg)
             signals[name] = signal
             blocks = []
@@ -73,7 +92,13 @@ class StrategyEvaluator:
             test_metrics = Backtester(self.spec, self.backtest, self.risk, candidate_cfg).run(
                 test, signal.reindex(test.index)
             ).metrics
-            metrics[name] = {"validation_periods": blocks, "test_diagnostic_only": test_metrics}
+            metrics[name] = {
+                "recipe": {"mode": mode, "rsi_overbought": overbought,
+                           "rsi_oversold": oversold, "ai_buy_threshold": buy,
+                           "ai_sell_threshold": sell, "sl_atr_mult": sl_atr,
+                           "rr_ratio": rr},
+                "validation_periods": blocks, "test_diagnostic_only": test_metrics,
+            }
             returns = [float(m.get("total_return_pct", 0)) for m in blocks]
             metrics[name]["validation_stability"] = {
                 "positive_periods": sum(value > 0 for value in returns),
@@ -109,4 +134,5 @@ class StrategyEvaluator:
         reason = "validation_filters_passed" if selected else "no_candidate_passed_all_validation_periods"
         frame = pd.DataFrame(signals)
         frame.index = ind.index
-        return Evaluation(selected, reason, metrics, model, frame)
+        return Evaluation(selected, reason, metrics, model, frame,
+                          candidate_configs.get(selected) if selected else None)

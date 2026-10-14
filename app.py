@@ -307,6 +307,8 @@ def cmd_demo(args, settings: Settings) -> None:
 
 
 def cmd_autonomous(args, settings: Settings) -> None:
+    if args.timeframe not in ("M15", "M30", "H1", "H4"):
+        raise ValueError("El agente autónomo requiere timeframe M15 o superior.")
     if args.live and not args.execute:
         raise ValueError("--live requiere --execute; sin --execute el ciclo es solo análisis.")
     if args.live:
@@ -369,7 +371,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Permite cuenta REAL (exige ALLOW_LIVE_TRADING en .env + confirmación escrita)")
     a = sub.add_parser("autonomous", help="Análisis autónomo periódico; solo análisis por defecto")
     a.add_argument("--symbol", help="Símbolo exacto de MT5")
-    a.add_argument("--timeframe", default="M15", choices=["M5", "M15", "M30", "H1", "H4"])
+    a.add_argument("--timeframe", default="M15", choices=["M15", "M30", "H1", "H4"])
     a.add_argument("--mode", default="hybrid", choices=["rules", "ai", "hybrid"])
     a.add_argument("--cycle-minutes", type=int, choices=[10, 15], default=15)
     a.add_argument("--execute", action="store_true", help="Autoriza órdenes del broker conectado")

@@ -116,6 +116,9 @@ class AutonomousAgent:
     def cycle(self) -> CycleDecision:
         now = pd.Timestamp.now(tz="UTC")
         try:
+            if self.settings.market.timeframe not in ("M15", "M30", "H1", "H4"):
+                return self._record(CycleDecision(now.isoformat(), self.settings.market.symbol, None,
+                    "NO TRADE", None, ["el agente autónomo requiere timeframe M15 o superior"], {}))
             if not self.state_valid:
                 return self._record(CycleDecision(now.isoformat(), self.settings.market.symbol, None,
                     "NO TRADE", None, ["estado de deduplicación/riesgo ilegible; ejecución bloqueada"], {}))
@@ -184,6 +187,10 @@ class AutonomousAgent:
                     "NO TRADE", None, ["indicadores incompletos"], {}, spread))
 
             evaluation: Evaluation = self.evaluator.evaluate(ind, self.settings.model)
+            if evaluation.selected_config is not None:
+                # The validated recipe also defines stops/targets at execution;
+                # do not evaluate one setup and place another.
+                self.settings.strategy = evaluation.selected_config
             positions = self.broker.open_positions()
             position_notes = []
             for pos in positions:
@@ -236,6 +243,16 @@ class AutonomousAgent:
                 name: int(evaluation.signals[name].iloc[-1])
                 for name in evaluation.signals.columns
             }
+            if evaluation.selected_config is not None:
+                decision.metrics["selected_recipe"] = {
+                    "mode": evaluation.selected_config.mode,
+                    "rsi_overbought": evaluation.selected_config.rsi_overbought,
+                    "rsi_oversold": evaluation.selected_config.rsi_oversold,
+                    "ai_buy_threshold": evaluation.selected_config.ai_buy_threshold,
+                    "ai_sell_threshold": evaluation.selected_config.ai_sell_threshold,
+                    "sl_atr_mult": evaluation.selected_config.sl_atr_mult,
+                    "rr_ratio": evaluation.selected_config.rr_ratio,
+                }
             decision.execution_mode = "execution_enabled" if self.execute else "analysis_only"
             if action in ("BUY", "SELL"):
                 decision.risk_estimate = self._estimate_risk(signal, float(row.atr))
