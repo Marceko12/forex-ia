@@ -1,0 +1,9 @@
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+joblib>=1.3
+pytest>=7.4
+
+# MetaTrader5 solo existe para Windows (y Python de 64 bits).
+# En Linux/Mac la app funciona igual con datos CSV/sinteticos y el PaperBroker.
+MetaTrader5>=5.0.45; sys_platform == "win32"
