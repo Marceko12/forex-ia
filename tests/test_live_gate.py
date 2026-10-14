@@ -172,10 +172,11 @@ def test_connect_uses_open_session_without_credentials_and_with_timeout():
     assert fake.login_calls == 0  # ya estaba en la cuenta correcta
 
 
-def test_connect_logs_in_only_if_account_differs():
+def test_connect_refuses_account_mismatch_without_switching_session():
     fake = FakeMT5()  # abierta: login=1
-    bd.connect_mt5(fake, MT5Config(login=999, password="x", server="S"))
-    assert fake.login_calls == 1
+    _expect(RuntimeError, lambda: bd.connect_mt5(fake, MT5Config(login=999, password="x", server="S")))
+    assert fake.login_calls == 0
+    assert fake.shutdown_called
 
 
 def test_connect_failure_does_not_leak_password():

@@ -14,8 +14,8 @@ from src.market_data import _import_mt5, connect_mt5
 def main() -> int:
     s = get_settings()
     print(f"Python: {struct.calcsize('P') * 8} bits (debe ser 64)")
-    print(f"Cuenta en .env: {s.mt5.login or '(vacío)'} | Servidor: {s.mt5.server or '(vacío)'} | "
-          f"Ruta: {s.mt5.path or '(automática)'}")
+    print(f"Cuenta configurada en .env: {'sí' if s.mt5.login else 'no'} | "
+          f"Ruta de terminal configurada: {'sí' if s.mt5.path else 'no'}")
 
     mt5 = _import_mt5()
     if mt5 is None:
@@ -40,7 +40,7 @@ def main() -> int:
                  mt5.ACCOUNT_TRADE_MODE_REAL: "REAL"}
         print("\nCONEXIÓN OK")
         print(f"  Tipo de cuenta : {modes.get(info.trade_mode, info.trade_mode)}")
-        print(f"  Cuenta/servidor: {info.login} / {info.server}")
+        print("  Cuenta/servidor: conectados (identificadores ocultos)")
         print(f"  Moneda         : {info.currency}  {'(OK)' if info.currency == 'USD' else '(el bot real exige USD)'}")
         print(f"  Balance/equity : {info.balance:.2f} / {info.equity:.2f}")
         print(f"  Cuenta puede operar: {info.trade_allowed}")

@@ -65,7 +65,8 @@ def connect_mt5(mt5, cfg, timeout_ms: int = 60_000, retries: int = 3) -> None:
 
     1) Se conecta SIN credenciales: reutiliza la sesión que ya tienes abierta en MT5
        (evita el error 'IPC timeout' que aparece al autenticar durante initialize).
-    2) Solo si la cuenta abierta no coincide con MT5_LOGIN, hace login explícito.
+    2) Si hay credenciales configuradas, solo verifica que la sesión ya abierta
+       coincide; nunca ejecuta login ni cambia la cuenta automáticamente.
     Reintenta si el terminal aún está arrancando. Nunca escribe la contraseña en mensajes.
     """
     kwargs = {"timeout": timeout_ms}
@@ -85,11 +86,15 @@ def connect_mt5(mt5, cfg, timeout_ms: int = 60_000, retries: int = 3) -> None:
         raise RuntimeError(f"No se pudo inicializar MT5: {last}")
 
     info = mt5.account_info()
-    if cfg.has_credentials and (info is None or info.login != cfg.login):
-        if not mt5.login(cfg.login, password=cfg.password, server=cfg.server, timeout=timeout_ms):
-            err = mt5.last_error()
-            mt5.shutdown()
-            raise RuntimeError(f"No se pudo iniciar sesión en la cuenta {cfg.login} ({cfg.server}): {err}")
+    if info is None:
+        mt5.shutdown()
+        raise RuntimeError("MT5 no tiene una sesión activa verificable; inicia la cuenta deseada manualmente.")
+    if cfg.has_credentials and (info.login != cfg.login or (cfg.server and info.server != cfg.server)):
+        mt5.shutdown()
+        raise RuntimeError(
+            "La sesión abierta en MT5 no coincide con la cuenta configurada. "
+            "Se conservó la sesión actual; no se intentó cambiar de cuenta."
+        )
 
 
 def fetch_mt5(settings: Settings, n_bars: int | None = None, start_pos: int = 1) -> pd.DataFrame:

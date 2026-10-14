@@ -215,8 +215,8 @@ class MT5Broker(BaseBroker):
             tick_value_loss=getattr(sym, "trade_tick_value_loss", 0.0),
         )
 
-        log.warning("MT5 conectado | modo=%s cuenta=%s servidor=%s balance=%.2f %s",
-                    "REAL" if self.is_live else "DEMO", info.login, info.server, info.balance, info.currency)
+        log.warning("MT5 conectado | modo=%s balance=%.2f %s",
+                    "REAL" if self.is_live else "DEMO", info.balance, info.currency)
 
     def disconnect(self) -> None:
         if self.mt5:
