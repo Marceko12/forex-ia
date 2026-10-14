@@ -1,0 +1,70 @@
+{
+  "generated_at": "2026-10-14",
+  "data_file": "data/market_data.csv",
+  "data_sha256": "512D65E10248A09D7A9B592AA90201C31226CEF99ED49367CB6B2E9FB1F13CC1",
+  "data_rows": 5000,
+  "symbol_used": "EURUSD",
+  "timeframe": "M15",
+  "split": {
+    "method": "chronological 70/30",
+    "train_rows": 3500,
+    "test_rows": 1500,
+    "test_start_utc": "2026-09-22T03:45:00Z",
+    "test_end_utc": "2026-10-13T18:30:00Z"
+  },
+  "data_provenance": "Unknown; local CSV, not independently validated as XM historical data",
+  "runs": [
+    {
+      "strategy": "rules",
+      "initial_balance_usd": 10000,
+      "final_equity_usd": 10717.10,
+      "net_return_pct": 7.17,
+      "max_drawdown_pct": -7.95,
+      "trades": 68,
+      "win_rate_pct": 44.12,
+      "profit_factor": 1.15,
+      "expectancy_usd": 10.55,
+      "sharpe_daily": 2.28
+    },
+    {
+      "strategy": "hybrid",
+      "initial_balance_usd": 10000,
+      "final_equity_usd": 10902.22,
+      "net_return_pct": 9.02,
+      "max_drawdown_pct": -3.72,
+      "trades": 20,
+      "win_rate_pct": 55.0,
+      "profit_factor": 1.77,
+      "expectancy_usd": 45.11,
+      "sharpe_daily": 4.77,
+      "model_validation_auc": 0.509,
+      "model_validation_accuracy": 0.503
+    },
+    {
+      "strategy": "no_trade",
+      "initial_balance_usd": 10000,
+      "final_equity_usd": 10000,
+      "net_return_pct": 0.0,
+      "max_drawdown_pct": 0.0,
+      "trades": 0
+    },
+    {
+      "strategy": "rules",
+      "initial_balance_usd": 7,
+      "final_equity_usd": 7,
+      "net_return_pct": 0.0,
+      "max_drawdown_pct": 0.0,
+      "trades": 0,
+      "note": "Minimum volume exceeded the configured monetary risk budget; no order simulated."
+    }
+  ],
+  "execution_assumptions": {
+    "spread_pips_fixed": 1.0,
+    "commission_usd_per_lot_round_turn": 7.0,
+    "slippage": "not modeled",
+    "swap": "not modeled",
+    "intrabar_sl_tp_both_touched": "stop loss assumed first",
+    "gaps": "open price used if it crosses stop/target"
+  },
+  "interpretation": "Exploratory only. The sample and provenance are insufficient to establish a trading edge or readiness for live execution."
+}

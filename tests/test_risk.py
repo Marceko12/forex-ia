@@ -42,6 +42,22 @@ def test_position_size_respects_max_lots():
     assert rm.position_size(1_000_000, 10, EURUSD, 1.10) == 2.0
 
 
+def test_position_size_from_broker_money_loss_rounds_down():
+    rm = RiskManager(RiskConfig(risk_per_trade=0.01), 100)
+    # Pérdida broker-calculada de 3.40 USD/lote, presupuesto 1 USD.
+    assert rm.position_size_for_risk(100, 3.40, EURUSD) == 0.29
+
+
+def test_nonzero_volume_origin_and_irregular_step_stay_valid():
+    from config import SymbolSpec
+
+    spec = SymbolSpec("TESTUSD", 0.0001, min_lot=0.1, max_lot=1.15, lot_step=0.25)
+    rm = RiskManager(RiskConfig(risk_per_trade=0.01, max_lots=1.15), 1_000)
+    lots = rm.position_size_for_risk(1_000, 1.0, spec)
+    assert lots == 1.1
+    assert (lots - spec.min_lot) / spec.lot_step == 4
+
+
 def test_position_size_invalid_inputs():
     rm = RiskManager(RiskConfig(), 10_000)
     assert rm.position_size(10_000, 0, EURUSD, 1.10) == 0.0

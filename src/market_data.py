@@ -43,6 +43,23 @@ def mt5_available() -> bool:
     return _import_mt5() is not None
 
 
+def resolve_mt5_symbol(mt5, requested: str) -> str:
+    """Resuelve nombre exacto o un único símbolo con sufijo publicado por el broker."""
+    requested = requested.strip()
+    if not requested:
+        raise ValueError("El nombre de símbolo está vacío.")
+    if mt5.symbol_info(requested) is not None:
+        return requested
+    names = [getattr(item, "name", "") for item in (mt5.symbols_get() or [])]
+    matches = [name for name in names if name and name.upper().startswith(requested.upper())]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        raise ValueError(f"Símbolo ambiguo para {requested}: {', '.join(matches)}")
+    err = mt5.last_error() if hasattr(mt5, "last_error") else ""
+    raise ValueError(f"El broker no publica el símbolo {requested} (MT5: {err}).")
+
+
 def connect_mt5(mt5, cfg, timeout_ms: int = 60_000, retries: int = 3) -> None:
     """Conecta con el terminal MT5 de forma robusta.
 
@@ -95,6 +112,7 @@ def fetch_mt5(settings: Settings, n_bars: int | None = None, start_pos: int = 1)
         symbol, tf_name = settings.market.symbol, settings.market.timeframe
         if tf_name not in TIMEFRAMES:
             raise ValueError(f"Timeframe inválido: {tf_name}. Opciones: {TIMEFRAMES}")
+        symbol = resolve_mt5_symbol(mt5, symbol)
         if not mt5.symbol_select(symbol, True):
             raise RuntimeError(f"Símbolo no disponible en el broker: {symbol}")
 

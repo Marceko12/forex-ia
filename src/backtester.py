@@ -51,6 +51,18 @@ class Backtester:
             if col not in df.columns:
                 raise ValueError(f"Falta la columna '{col}' (¿olvidaste add_all_indicators?).")
 
+        if not df.index.is_monotonic_increasing or df.index.has_duplicates:
+            raise ValueError("El backtest requiere un índice temporal estrictamente cronológico y sin duplicados.")
+        ohlc = df[["open", "high", "low", "close"]].to_numpy(dtype=float)
+        if not np.isfinite(ohlc).all() or (ohlc <= 0).any():
+            raise ValueError("El backtest contiene precios OHLC ausentes, no finitos o no positivos.")
+        if ((df["high"] < df[["open", "close"]].max(axis=1))
+                | (df["low"] > df[["open", "close"]].min(axis=1))
+                | (df["high"] < df["low"])).any():
+            raise ValueError("El backtest contiene velas OHLC inconsistentes.")
+        if not signals.dropna().isin([-1, 0, 1]).all():
+            raise ValueError("Las señales solo pueden contener -1, 0 o 1.")
+
         spec, bt, st = self.spec, self.bt, self.strat
         times = df.index
         o, h, l, c = (df[k].to_numpy(float) for k in ("open", "high", "low", "close"))

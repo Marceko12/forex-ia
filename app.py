@@ -158,13 +158,37 @@ def try_open_trade(broker: BaseBroker, risk: RiskManager, settings: Settings, no
     sl_dist = settings.strategy.sl_atr_mult * atr_value
     if not (sl_dist > 0):
         return False
-    lots = risk.position_size(broker.equity(), sl_dist / spec.pip_size, spec, price)
+    quote_fn = getattr(broker, "entry_quote", None)
+    if callable(quote_fn):
+        quote = quote_fn(signal)
+        if quote is None:
+            log.warning("Entrada rechazada: no hay cotización ejecutable actual para %s.", spec.symbol)
+            return False
+        price = quote
+    sl = price - signal * sl_dist
+    tp = price + signal * settings.strategy.rr_ratio * sl_dist
+    loss_fn = getattr(broker, "loss_per_lot", None)
+    if callable(loss_fn):
+        loss_per_lot = loss_fn(signal, price, sl)
+        if loss_per_lot is None:
+            log.warning("Entrada rechazada: MT5 no pudo calcular el riesgo monetario al SL.")
+            return False
+        # Coste round-turn configurado como estimación; debe verificarse contra XM.
+        estimated_commission = float(settings.backtest.commission_per_lot)
+        if estimated_commission < 0:
+            log.warning("Entrada rechazada: comisión estimada inválida.")
+            return False
+        loss_per_lot += estimated_commission
+        lots = risk.position_size_for_risk(broker.equity(), loss_per_lot, spec)
+    else:
+        try:
+            lots = risk.position_size(broker.equity(), sl_dist / spec.pip_size, spec, price)
+        except (ValueError, ZeroDivisionError):
+            lots = 0.0
     if lots <= 0:
         log.warning("Tamaño 0: el riesgo mínimo del broker excede el límite configurado.")
         return False
 
-    sl = price - signal * sl_dist
-    tp = price + signal * settings.strategy.rr_ratio * sl_dist
     pos = broker.market_order(signal, lots, sl, tp, price=price, time=now)
     if pos is not None:
         risk.register_open()

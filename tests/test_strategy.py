@@ -158,6 +158,19 @@ def test_backtest_without_signals_has_no_trades():
     assert res.metrics["final_equity"] == BacktestConfig().initial_balance
 
 
+def test_backtest_rejects_invalid_prices_and_unsorted_time():
+    import pytest
+
+    ind = add_all_indicators(generate_synthetic(500))
+    signals = pd.Series(0, index=ind.index)
+    bad_prices = ind.copy()
+    bad_prices.iloc[300, bad_prices.columns.get_loc("low")] = bad_prices["high"].iloc[300] + 1
+    with pytest.raises(ValueError, match="inconsistentes"):
+        Backtester(get_symbol_spec("EURUSD")).run(bad_prices, signals)
+    with pytest.raises(ValueError, match="cronológico"):
+        Backtester(get_symbol_spec("EURUSD")).run(ind.iloc[::-1], signals.iloc[::-1])
+
+
 def test_stop_loss_hits_first_when_both_touched():
     """Vela que toca SL y TP a la vez -> se asume SL (conservador)."""
     ind = add_all_indicators(generate_synthetic(500))

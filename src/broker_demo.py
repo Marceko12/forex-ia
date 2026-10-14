@@ -10,6 +10,7 @@ Conectores de broker.
 from __future__ import annotations
 
 import logging
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
 
@@ -17,7 +18,7 @@ import pandas as pd
 
 from config import MT5Config, SymbolSpec
 from src.logger import append_trades
-from src.market_data import _import_mt5, connect_mt5
+from src.market_data import _import_mt5, connect_mt5, resolve_mt5_symbol
 
 log = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ class PaperBroker(BaseBroker):
             return None
         pos = Position(self._next_ticket, self.spec.symbol, int(side), lots,
                        entry=price + side * self.half_spread, sl=sl, tp=tp,
-                       open_time=time if time is not None else pd.Timestamp.utcnow())
+                       open_time=time if time is not None else pd.Timestamp.now(tz="UTC"))
         self._next_ticket += 1
         self.positions.append(pos)
         log.info("ABRE #%d %s %.2f lotes @ %.5f | SL %.5f TP %.5f",
@@ -114,7 +115,7 @@ class PaperBroker(BaseBroker):
         self.positions = [p for p in self.positions if p.ticket != position.ticket]
         record = {
             "source": "demo", "symbol": position.symbol,
-            "entry_time": position.open_time, "exit_time": time if time is not None else pd.Timestamp.utcnow(),
+            "entry_time": position.open_time, "exit_time": time if time is not None else pd.Timestamp.now(tz="UTC"),
             "side": "BUY" if position.side == 1 else "SELL", "lots": position.lots,
             "entry_price": round(position.entry, 5), "exit_price": round(fill, 5),
             "sl": round(position.sl, 5), "tp": round(position.tp, 5),
@@ -153,7 +154,7 @@ class MT5Broker(BaseBroker):
         self.mt5 = None
         self.is_live = False
         self._logged_deals: set[int] = set()
-        self._connected_at = pd.Timestamp.utcnow()
+        self._connected_at = pd.Timestamp.now(tz="UTC")
 
     @property
     def source(self) -> str:
@@ -190,8 +191,11 @@ class MT5Broker(BaseBroker):
                 f"Cuenta REAL en {info.currency}: el cálculo de lotes asume USD. "
                 "Usa una cuenta en USD o adapta SymbolSpec.pip_value_per_lot."
             )
-        if not mt5.symbol_select(self.spec.symbol, True):
-            raise RuntimeError(f"Símbolo no disponible: {self.spec.symbol}")
+        symbol = resolve_mt5_symbol(mt5, self.spec.symbol)
+        if not mt5.symbol_select(symbol, True):
+            raise RuntimeError(f"Símbolo no disponible: {symbol}")
+        if symbol != self.spec.symbol:
+            self.spec = replace(self.spec, symbol=symbol)
 
                 # Límites y valor del tick reales del broker
         sym = mt5.symbol_info(self.spec.symbol)
@@ -206,9 +210,9 @@ class MT5Broker(BaseBroker):
             max_lot=sym.volume_max,
             lot_step=sym.volume_step,
             contract_size=sym.trade_contract_size,
-            tick_size=sym.trade_tick_size,
-            tick_value_profit=sym.trade_tick_value_profit,
-            tick_value_loss=sym.trade_tick_value_loss,
+            tick_size=getattr(sym, "trade_tick_size", 0.0),
+            tick_value_profit=getattr(sym, "trade_tick_value_profit", 0.0),
+            tick_value_loss=getattr(sym, "trade_tick_value_loss", 0.0),
         )
 
         log.warning("MT5 conectado | modo=%s cuenta=%s servidor=%s balance=%.2f %s",
@@ -230,29 +234,89 @@ class MT5Broker(BaseBroker):
             for p in raw if p.magic == MAGIC_NUMBER
         ]
 
+    def entry_quote(self, side: int) -> float | None:
+        """Precio ejecutable actual (ask para BUY, bid para SELL)."""
+        if self.mt5 is None:
+            return None
+        tick = self.mt5.symbol_info_tick(self.spec.symbol)
+        if tick is None:
+            return None
+        value = float(tick.ask if side == 1 else tick.bid)
+        return value if value > 0 else None
+
+    def loss_per_lot(self, side: int, entry: float, sl: float) -> float | None:
+        """Pérdida en divisa de cuenta calculada por el motor de MT5."""
+        if self.mt5 is None or entry <= 0 or sl <= 0:
+            return None
+        order_type = self.mt5.ORDER_TYPE_BUY if side == 1 else self.mt5.ORDER_TYPE_SELL
+        amount = self.mt5.order_calc_profit(order_type, self.spec.symbol, 1.0, entry, sl)
+        if amount is None or not float(amount) < 0:
+            return None
+        return abs(float(amount))
+
     def market_order(self, side, lots, sl, tp, price=None, time=None) -> Position | None:
         mt5 = self.mt5
-        if not sl or sl <= 0:
-            log.error("Orden rechazada: toda operación debe llevar Stop Loss.")
+        if mt5 is None or side not in (-1, 1) or not all(map(math.isfinite, [lots, sl, tp])):
+            log.error("Orden rechazada: conexión, dirección o valores numéricos inválidos.")
+            return None
+        if sl <= 0 or tp <= 0:
+            log.error("Orden rechazada: toda operación requiere Stop Loss y Take Profit válidos.")
+            return None
+        if lots < self.spec.min_lot or lots > self.spec.max_lot:
+            log.error("Orden rechazada: volumen %.8f fuera de [%.8f, %.8f].", lots,
+                      self.spec.min_lot, self.spec.max_lot)
+            return None
+        steps = (lots - self.spec.min_lot) / self.spec.lot_step
+        if abs(steps - round(steps)) > 1e-7:
+            log.error("Orden rechazada: volumen %.8f no respeta el paso %.8f.", lots, self.spec.lot_step)
             return None
         tick = mt5.symbol_info_tick(self.spec.symbol)
-        if tick is None:
-            log.error("Sin tick para %s", self.spec.symbol)
+        sym = mt5.symbol_info(self.spec.symbol)
+        if tick is None or sym is None:
+            log.error("Sin cotización/especificaciones válidas para %s", self.spec.symbol)
+            return None
+        if tick.bid <= 0 or tick.ask < tick.bid:
+            log.error("Cotización inválida para %s", self.spec.symbol)
             return None
         order_type = mt5.ORDER_TYPE_BUY if side == 1 else mt5.ORDER_TYPE_SELL
         px = tick.ask if side == 1 else tick.bid
+        min_distance = float(getattr(sym, "trade_stops_level", 0)) * float(getattr(sym, "point", 0))
+        if sl <= 0 or tp <= 0 or (side == 1 and not (sl < px < tp)) or (side == -1 and not (tp < px < sl)):
+            log.error("Orden rechazada: SL/TP no corresponden con dirección y cotización actual.")
+            return None
+        if min_distance and (abs(px - sl) < min_distance or abs(tp - px) < min_distance):
+            log.error("Orden rechazada: SL/TP más cerca que stops_level (%.8f).", min_distance)
+            return None
         request = {
             "action": mt5.TRADE_ACTION_DEAL, "symbol": self.spec.symbol, "volume": float(lots),
             "type": order_type, "price": px, "sl": float(sl), "tp": float(tp),
             "deviation": self.deviation, "magic": MAGIC_NUMBER, "comment": "forex-ai",
             "type_time": mt5.ORDER_TIME_GTC, "type_filling": mt5.ORDER_FILLING_IOC,
         }
+        risk = mt5.order_calc_profit(order_type, self.spec.symbol, float(lots), px, float(sl))
+        if risk is None or float(risk) >= 0:
+            log.error("Orden rechazada: MT5 no pudo estimar pérdida al SL (%s).", risk)
+            return None
+        margin = mt5.order_calc_margin(order_type, self.spec.symbol, float(lots), px)
+        account = mt5.account_info()
+        free_margin = getattr(account, "margin_free", None) if account is not None else None
+        if margin is None or free_margin is None or float(margin) < 0 or float(margin) > float(free_margin):
+            log.error("Orden rechazada: margen insuficiente o no verificable (estimado=%s, libre=%s).",
+                      margin, free_margin)
+            return None
+        log.info("Preflight %s %s | pérdida estimada al SL=%.2f | margen=%.2f | libre=%.2f",
+                 self.spec.symbol, "BUY" if side == 1 else "SELL", abs(float(risk)),
+                 float(margin), float(free_margin))
+        check = mt5.order_check(request)
+        if check is None or getattr(check, "retcode", None) != 0:
+            log.error("Orden rechazada por order_check: %s", check)
+            return None
         result = mt5.order_send(request)
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
             log.error("Orden rechazada: %s", result)
             return None
         pos = Position(result.order, self.spec.symbol, int(side), lots, result.price, sl, tp,
-                       pd.Timestamp.utcnow())
+                       pd.Timestamp.now(tz="UTC"))
         log.warning("MT5 [%s] ABRE #%s %s %.2f lotes @ %.5f | SL %.5f TP %.5f", self.source.upper(),
                     result.order, "BUY" if side == 1 else "SELL", lots, result.price, sl, tp)
         append_trades([{
@@ -286,7 +350,7 @@ class MT5Broker(BaseBroker):
         """
         mt5 = self.mt5
         start = (self._connected_at - pd.Timedelta(minutes=1)).to_pydatetime()
-        end = (pd.Timestamp.utcnow() + pd.Timedelta(days=1)).to_pydatetime()
+        end = (pd.Timestamp.now(tz="UTC") + pd.Timedelta(days=1)).to_pydatetime()
         deals = mt5.history_deals_get(start, end) or []
         records = []
         for d in deals:

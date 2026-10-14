@@ -78,7 +78,9 @@ class SymbolSpec:
             if tick_value > 0:
                 return tick_value * self.pip_size / self.tick_size
 
-        # Respaldo para backtests y símbolos sin datos MT5.
+        # Respaldo solo cuando la divisa de cotización ya es USD o USD es
+        # la divisa base. Los cruces (p. ej. EURCAD) requieren conversión
+        # contemporánea o los cálculos de riesgo quedan mal denominados.
         base = self.symbol.upper()[:3]
         quote = self.symbol.upper()[3:6]
         raw = self.contract_size * self.pip_size
@@ -87,7 +89,10 @@ class SymbolSpec:
             return raw
         if base == "USD" and price > 0:
             return raw / price
-        return raw
+        raise ValueError(
+            f"No se puede estimar pip value en USD para {self.symbol} sin "
+            "especificaciones MT5 o tipo de cambio de conversión."
+        )
 
 
 def get_symbol_spec(symbol: str) -> SymbolSpec:

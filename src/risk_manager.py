@@ -80,10 +80,26 @@ class RiskManager:
         if sl_pips <= 0 or equity <= 0 or price <= 0:
             return 0.0
         risk_amount = equity * self.cfg.risk_per_trade
-        pip_value = spec.pip_value_per_lot(price)
-        raw_lots = risk_amount / (sl_pips * pip_value)
+        try:
+            pip_value = spec.pip_value_per_lot(price)
+        except (ValueError, ZeroDivisionError):
+            return 0.0
+        return self.position_size_for_risk(equity, sl_pips * pip_value, spec)
 
-        lots = math.floor(raw_lots / spec.lot_step + 1e-9) * spec.lot_step
-        lots = min(lots, spec.max_lot, self.cfg.max_lots)
-        lots = round(lots, 2)
+    def position_size_for_risk(self, equity: float, loss_per_lot: float, spec: SymbolSpec) -> float:
+        """Dimensiona usando pérdida monetaria por lote calculada por el broker."""
+        if (not math.isfinite(equity) or not math.isfinite(loss_per_lot) or equity <= 0
+                or loss_per_lot <= 0 or spec.lot_step <= 0 or spec.min_lot <= 0):
+            return 0.0
+        risk_amount = equity * self.cfg.risk_per_trade
+        raw_lots = risk_amount / loss_per_lot
+        maximum = min(spec.max_lot, self.cfg.max_lots)
+        if raw_lots < spec.min_lot or maximum < spec.min_lot:
+            return 0.0
+        allowed_steps = math.floor((maximum - spec.min_lot) / spec.lot_step + 1e-9)
+        desired_steps = math.floor((raw_lots - spec.min_lot) / spec.lot_step + 1e-9)
+        steps = min(allowed_steps, desired_steps)
+        precision = max(0, min(8, int(math.ceil(-math.log10(spec.lot_step))) + 2,
+                               int(math.ceil(-math.log10(spec.min_lot))) + 2))
+        lots = round(spec.min_lot + steps * spec.lot_step, precision)
         return lots if lots >= spec.min_lot else 0.0

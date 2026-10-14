@@ -32,6 +32,13 @@ def test_jpy_pair_with_suffix_detected():
     assert abs(spec.pip_value_per_lot(150.0) - 1000 / 150) < 1e-9
 
 
+def test_cross_pair_without_conversion_is_not_guessed():
+    import pytest
+
+    with pytest.raises(ValueError, match="conversión"):
+        get_symbol_spec("EURCADmicro").pip_value_per_lot(1.45)
+
+
 def test_settings_read_symbol_from_env():
     os.environ["MARKET_SYMBOL"], os.environ["MARKET_TIMEFRAME"] = "EURUSDm", "m15"
     try:
