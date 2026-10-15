@@ -192,3 +192,82 @@ def test_stop_loss_hits_first_when_both_touched():
     res = Backtester(get_symbol_spec("EURUSD")).run(ind, sig)
     assert res.trades.iloc[0]["exit_reason"] == "SL"
     assert res.trades.iloc[0]["pnl"] < 0
+
+
+def _one_bar_exit_case(side: int, outcome: str, gap: bool = False):
+    """Small deterministic OHLC path; costs are enabled in every case."""
+    from config import BacktestConfig, RiskConfig, StrategyConfig, SymbolSpec
+
+    idx = pd.date_range("2024-01-01", periods=4, freq="h", tz="UTC")
+    entry = 1.1000
+    frame = pd.DataFrame({
+        "open": [entry] * 4, "high": [entry + .0002] * 4,
+        "low": [entry - .0002] * 4, "close": [entry] * 4,
+        "atr": [.001] * 4,
+    }, index=idx)
+    sl_dist, tp_dist = .0015, .003
+    if outcome == "TP":
+        if gap:
+            frame.iloc[2, frame.columns.get_loc("open")] = entry + side * (tp_dist + .0005)
+            frame.iloc[2, frame.columns.get_loc("close")] = entry + side * (tp_dist + .0005)
+            frame.iloc[2, frame.columns.get_loc("high")] = entry + tp_dist + .001
+            frame.iloc[2, frame.columns.get_loc("low")] = entry - tp_dist - .001
+        elif side == 1:
+            frame.iloc[1, frame.columns.get_loc("high")] = entry + tp_dist + .0001
+        else:
+            frame.iloc[1, frame.columns.get_loc("low")] = entry - tp_dist - .0001
+    else:
+        if side == 1:
+            frame.iloc[1, frame.columns.get_loc("low")] = entry - sl_dist - .0001
+        else:
+            frame.iloc[1, frame.columns.get_loc("high")] = entry + sl_dist + .0001
+    signals = pd.Series([side, 0, 0, 0], index=idx)
+    bt = Backtester(
+        SymbolSpec("EURUSD", .0001),
+        BacktestConfig(initial_balance=10_000, spread_pips=1, commission_per_lot=7,
+                       slippage_pips=.2),
+        RiskConfig(risk_per_trade=.01),
+        StrategyConfig(sl_atr_mult=1.5, rr_ratio=2, max_bars_in_trade=20),
+    )
+    return bt.run(frame, signals)
+
+
+def test_deterministic_buy_tp_and_sl_with_spread_slippage_commission():
+    target = _one_bar_exit_case(1, "TP").trades.iloc[0]
+    stop = _one_bar_exit_case(1, "SL").trades.iloc[0]
+    assert target["side"] == stop["side"] == "BUY"
+    assert target["exit_reason"] == "TP" and target["pnl"] > 0
+    assert stop["exit_reason"] == "SL" and stop["pnl"] < 0
+    assert target["costs"] > 0 and stop["costs"] > 0
+    assert target["costs"] == stop["costs"]
+    assert np.isclose(stop["costs"], 21.0 * stop["lots"])
+    assert np.isclose(stop["pnl"], -171.0 * stop["lots"])
+
+
+def test_deterministic_sell_tp_and_sl_with_spread_slippage_commission():
+    target = _one_bar_exit_case(-1, "TP").trades.iloc[0]
+    stop = _one_bar_exit_case(-1, "SL").trades.iloc[0]
+    assert target["side"] == stop["side"] == "SELL"
+    assert target["exit_reason"] == "TP" and target["pnl"] > 0
+    assert stop["exit_reason"] == "SL" and stop["pnl"] < 0
+    assert target["costs"] > 0 and stop["costs"] > 0
+    assert target["costs"] == stop["costs"]
+    assert np.isclose(stop["costs"], 21.0 * stop["lots"])
+    assert np.isclose(stop["pnl"], -171.0 * stop["lots"])
+
+
+def test_gap_through_tp_is_executed_before_later_intrabar_sl_for_both_sides():
+    for side in (1, -1):
+        trade = _one_bar_exit_case(side, "TP", gap=True).trades.iloc[0]
+        assert trade["exit_reason"] == "TP"
+        assert trade["pnl"] > 0
+
+
+def test_backtest_reports_signal_and_closed_trade_counts_separately():
+    result = _one_bar_exit_case(1, "TP")
+    assert result.metrics["buy_signals"] == 1
+    assert result.metrics["sell_signals"] == 0
+    assert result.metrics["opened_trades"] == 1
+    assert result.metrics["closed_winning_trades"] == 1
+    assert result.metrics["closed_losing_trades"] == 0
+    assert result.metrics["closed_breakeven_trades"] == 0

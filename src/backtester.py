@@ -128,21 +128,24 @@ class Backtester:
                 exit_px, reason = None, None
                 is_new = pos["i"] == i
                 if side == 1:
+                    # El precio de apertura sucede antes del rango intravela.
+                    # Si hay gap a través de cualquiera de los niveles, se
+                    # ejecuta allí antes de evaluar high/low.
                     if not is_new and o[i] <= sl:
                         exit_px, reason = o[i], "SL"
-                    elif l[i] <= sl:
-                        exit_px, reason = sl, "SL"
                     elif not is_new and o[i] >= tp:
                         exit_px, reason = o[i], "TP"
+                    elif l[i] <= sl:
+                        exit_px, reason = sl, "SL"
                     elif h[i] >= tp:
                         exit_px, reason = tp, "TP"
                 else:
                     if not is_new and o[i] >= sl:
                         exit_px, reason = o[i], "SL"
-                    elif h[i] >= sl:
-                        exit_px, reason = sl, "SL"
                     elif not is_new and o[i] <= tp:
                         exit_px, reason = o[i], "TP"
+                    elif h[i] >= sl:
+                        exit_px, reason = sl, "SL"
                     elif l[i] <= tp:
                         exit_px, reason = tp, "TP"
 
@@ -189,6 +192,14 @@ class Backtester:
         equity_s = pd.Series(equity_curve, index=times, name="equity")
         drawdown_s = pd.Series(drawdown_curve, index=times, name="intrabar_adverse_equity")
         metrics = compute_metrics(trades_df, equity_s, bt.initial_balance, drawdown_equity=drawdown_s)
+        metrics.update({
+            "buy_signals": int((sig == 1).sum()),
+            "sell_signals": int((sig == -1).sum()),
+            "opened_trades": int(len(trades_df)),
+            "closed_winning_trades": int((trades_df["pnl"] > 0).sum()) if len(trades_df) else 0,
+            "closed_losing_trades": int((trades_df["pnl"] < 0).sum()) if len(trades_df) else 0,
+            "closed_breakeven_trades": int((trades_df["pnl"] == 0).sum()) if len(trades_df) else 0,
+        })
         if risk.halted:
             metrics["halted_reason"] = risk.halt_reason
         return BacktestResult(trades_df, equity_s, metrics)

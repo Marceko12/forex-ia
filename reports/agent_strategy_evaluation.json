@@ -1,6 +1,6 @@
 {
   "data": {
-    "path": "C:\\Users\\USUARIO\\Downloads\\forex-ai\\data\\market_data.csv",
+    "path": "data\\market_data.csv",
     "sha256": "512d65e10248a09d7a9b592aa90201c31226cef99ed49367cb6b2e9fb1f13cc1",
     "rows": 5000,
     "first": "2026-07-31T16:45:00+00:00",
@@ -82,7 +82,13 @@
           "avg_win": 0.0,
           "avg_loss": -35.72,
           "expectancy": -35.72,
-          "avg_bars_in_trade": 8.5
+          "avg_bars_in_trade": 8.5,
+          "buy_signals": 97,
+          "sell_signals": 42,
+          "opened_trades": 17,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 17,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -98,7 +104,13 @@
           "avg_win": 0.0,
           "avg_loss": -34.3,
           "expectancy": -34.3,
-          "avg_bars_in_trade": 12.1
+          "avg_bars_in_trade": 12.1,
+          "buy_signals": 3,
+          "sell_signals": 128,
+          "opened_trades": 14,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 14,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -114,7 +126,13 @@
           "avg_win": 0.0,
           "avg_loss": -37.0,
           "expectancy": -37.0,
-          "avg_bars_in_trade": 10.9
+          "avg_bars_in_trade": 10.9,
+          "buy_signals": 17,
+          "sell_signals": 58,
+          "opened_trades": 12,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 12,
+          "closed_breakeven_trades": 0
         }
       ],
       "selection_stability": {
@@ -149,7 +167,13 @@
           "avg_win": 0.0,
           "avg_loss": -35.74,
           "expectancy": -35.74,
-          "avg_bars_in_trade": 8.5
+          "avg_bars_in_trade": 8.5,
+          "buy_signals": 84,
+          "sell_signals": 29,
+          "opened_trades": 17,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 17,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -165,7 +189,13 @@
           "avg_win": 0.0,
           "avg_loss": -34.02,
           "expectancy": -34.02,
-          "avg_bars_in_trade": 13.7
+          "avg_bars_in_trade": 13.7,
+          "buy_signals": 0,
+          "sell_signals": 105,
+          "opened_trades": 11,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 11,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -181,7 +211,13 @@
           "avg_win": 0.0,
           "avg_loss": -36.97,
           "expectancy": -36.97,
-          "avg_bars_in_trade": 10.4
+          "avg_bars_in_trade": 10.4,
+          "buy_signals": 8,
+          "sell_signals": 49,
+          "opened_trades": 12,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 12,
+          "closed_breakeven_trades": 0
         }
       ],
       "selection_stability": {
@@ -216,7 +252,13 @@
           "avg_win": 0.0,
           "avg_loss": -37.82,
           "expectancy": -37.82,
-          "avg_bars_in_trade": 13.8
+          "avg_bars_in_trade": 13.8,
+          "buy_signals": 97,
+          "sell_signals": 42,
+          "opened_trades": 16,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 16,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -232,7 +274,13 @@
           "avg_win": 0.0,
           "avg_loss": -33.19,
           "expectancy": -33.19,
-          "avg_bars_in_trade": 18.9
+          "avg_bars_in_trade": 18.9,
+          "buy_signals": 3,
+          "sell_signals": 128,
+          "opened_trades": 11,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 11,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -248,7 +296,13 @@
           "avg_win": 0.0,
           "avg_loss": -38.04,
           "expectancy": -38.04,
-          "avg_bars_in_trade": 15.5
+          "avg_bars_in_trade": 15.5,
+          "buy_signals": 17,
+          "sell_signals": 58,
+          "opened_trades": 10,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 10,
+          "closed_breakeven_trades": 0
         }
       ],
       "selection_stability": {
@@ -283,7 +337,13 @@
           "avg_win": 0.0,
           "avg_loss": -35.95,
           "expectancy": -35.95,
-          "avg_bars_in_trade": 6.2
+          "avg_bars_in_trade": 6.2,
+          "buy_signals": 97,
+          "sell_signals": 42,
+          "opened_trades": 17,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 17,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -299,7 +359,13 @@
           "avg_win": 0.0,
           "avg_loss": -34.44,
           "expectancy": -34.44,
-          "avg_bars_in_trade": 9.5
+          "avg_bars_in_trade": 9.5,
+          "buy_signals": 3,
+          "sell_signals": 128,
+          "opened_trades": 16,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 16,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -315,7 +381,13 @@
           "avg_win": 0.0,
           "avg_loss": -36.99,
           "expectancy": -36.99,
-          "avg_bars_in_trade": 8.8
+          "avg_bars_in_trade": 8.8,
+          "buy_signals": 17,
+          "sell_signals": 58,
+          "opened_trades": 12,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 12,
+          "closed_breakeven_trades": 0
         }
       ],
       "selection_stability": {
@@ -350,7 +422,13 @@
           "avg_win": 0.0,
           "avg_loss": -34.82,
           "expectancy": -34.82,
-          "avg_bars_in_trade": 9.2
+          "avg_bars_in_trade": 9.2,
+          "buy_signals": 86,
+          "sell_signals": 126,
+          "opened_trades": 18,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 18,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -366,7 +444,13 @@
           "avg_win": 0.0,
           "avg_loss": -36.87,
           "expectancy": -36.87,
-          "avg_bars_in_trade": 6.2
+          "avg_bars_in_trade": 6.2,
+          "buy_signals": 181,
+          "sell_signals": 63,
+          "opened_trades": 20,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 20,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -382,7 +466,13 @@
           "avg_win": 0.0,
           "avg_loss": -33.5,
           "expectancy": -33.5,
-          "avg_bars_in_trade": 14.2
+          "avg_bars_in_trade": 14.2,
+          "buy_signals": 105,
+          "sell_signals": 105,
+          "opened_trades": 16,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 16,
+          "closed_breakeven_trades": 0
         }
       ],
       "selection_stability": {
@@ -417,7 +507,13 @@
           "avg_win": 0.0,
           "avg_loss": -34.21,
           "expectancy": -34.21,
-          "avg_bars_in_trade": 7.5
+          "avg_bars_in_trade": 7.5,
+          "buy_signals": 14,
+          "sell_signals": 7,
+          "opened_trades": 8,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 8,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -433,7 +529,13 @@
           "avg_win": 0.0,
           "avg_loss": -34.78,
           "expectancy": -34.78,
-          "avg_bars_in_trade": 12.6
+          "avg_bars_in_trade": 12.6,
+          "buy_signals": 3,
+          "sell_signals": 18,
+          "opened_trades": 5,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 5,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -449,7 +551,13 @@
           "avg_win": 0.0,
           "avg_loss": -37.8,
           "expectancy": -37.8,
-          "avg_bars_in_trade": 15.2
+          "avg_bars_in_trade": 15.2,
+          "buy_signals": 6,
+          "sell_signals": 18,
+          "opened_trades": 5,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 5,
+          "closed_breakeven_trades": 0
         }
       ],
       "selection_stability": {
@@ -484,7 +592,13 @@
           "avg_win": 0.0,
           "avg_loss": -33.52,
           "expectancy": -33.52,
-          "avg_bars_in_trade": 9.0
+          "avg_bars_in_trade": 9.0,
+          "buy_signals": 11,
+          "sell_signals": 4,
+          "opened_trades": 7,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 7,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -500,7 +614,13 @@
           "avg_win": 0.0,
           "avg_loss": -33.38,
           "expectancy": -33.38,
-          "avg_bars_in_trade": 22.5
+          "avg_bars_in_trade": 22.5,
+          "buy_signals": 0,
+          "sell_signals": 4,
+          "opened_trades": 2,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 2,
+          "closed_breakeven_trades": 0
         },
         {
           "initial_balance": 10000.0,
@@ -516,7 +636,13 @@
           "avg_win": 0.0,
           "avg_loss": -37.78,
           "expectancy": -37.78,
-          "avg_bars_in_trade": 15.0
+          "avg_bars_in_trade": 15.0,
+          "buy_signals": 4,
+          "sell_signals": 12,
+          "opened_trades": 5,
+          "closed_winning_trades": 0,
+          "closed_losing_trades": 5,
+          "closed_breakeven_trades": 0
         }
       ],
       "selection_stability": {
