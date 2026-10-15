@@ -36,6 +36,8 @@ class Position:
     sl: float
     tp: float
     open_time: pd.Timestamp
+    magic: int = 0
+    identifier: int | None = None
 
 
 class BaseBroker(ABC):
@@ -104,7 +106,8 @@ class PaperBroker(BaseBroker):
             return None
         pos = Position(self._next_ticket, self.spec.symbol, int(side), lots,
                        entry=price + side * self.half_spread, sl=sl, tp=tp,
-                       open_time=time if time is not None else pd.Timestamp.now(tz="UTC"))
+                       open_time=time if time is not None else pd.Timestamp.now(tz="UTC"),
+                       magic=MAGIC_NUMBER)
         self._next_ticket += 1
         self.positions.append(pos)
         log.info("ABRE #%d %s %.2f lotes @ %.5f | SL %.5f TP %.5f",
@@ -151,10 +154,13 @@ class PaperBroker(BaseBroker):
 # --------------------------------------------------------------------------- #
 class MT5Broker(BaseBroker):
     def __init__(self, cfg: MT5Config, spec: SymbolSpec, allow_live: bool = False,
-                 deviation: int = 20, max_spread_pips: float = 2.0) -> None:
+                 deviation: int = 20, max_spread_pips: float = 2.0,
+                 allow_read_only_real: bool = False, read_only: bool = False) -> None:
         self.cfg = cfg
         self.spec = spec
         self.allow_live = allow_live
+        self.allow_read_only_real = allow_read_only_real
+        self.read_only = read_only
         self.deviation = deviation
         self.max_spread_pips = max_spread_pips
         self.mt5 = None
@@ -185,12 +191,14 @@ class MT5Broker(BaseBroker):
             raise RuntimeError("MT5 no devolvió información de la cuenta.")
 
         self.is_live = info.trade_mode == mt5.ACCOUNT_TRADE_MODE_REAL
-        if self.is_live and not self.allow_live:
+        if self.is_live and not self.allow_live and not self.allow_read_only_real:
             raise PermissionError("BLOQUEADO: la cuenta es REAL y el modo real no fue autorizado (usa --live).")
-        if not info.trade_allowed:
+        if not info.trade_allowed and not self.read_only:
             raise RuntimeError("La cuenta no tiene permitido operar (trade_allowed=False).")
         term = mt5.terminal_info()
-        if term is not None and not term.trade_allowed:
+        if term is None or not getattr(term, "connected", True):
+            raise RuntimeError("La sesión del terminal MT5 no está conectada/verificable.")
+        if not self.read_only and not term.trade_allowed:
             raise RuntimeError("Activa el botón 'Algo Trading' en MetaTrader 5.")
         if self.is_live and info.currency != "USD":
             raise RuntimeError(
@@ -219,6 +227,11 @@ class MT5Broker(BaseBroker):
             tick_size=getattr(sym, "trade_tick_size", 0.0),
             tick_value_profit=getattr(sym, "trade_tick_value_profit", 0.0),
             tick_value_loss=getattr(sym, "trade_tick_value_loss", 0.0),
+            point=getattr(sym, "point", 0.0), digits=getattr(sym, "digits", 0),
+            trade_stops_level=getattr(sym, "trade_stops_level", 0),
+            trade_mode=getattr(sym, "trade_mode", None),
+            currency_profit=getattr(sym, "currency_profit", ""),
+            currency_margin=getattr(sym, "currency_margin", ""),
         )
         self.estimated_commission_per_lot = 0.0
 
@@ -234,11 +247,16 @@ class MT5Broker(BaseBroker):
         return float(self.mt5.account_info().equity)
 
     def open_positions(self) -> list[Position]:
-        raw = self.mt5.positions_get(symbol=self.spec.symbol) or []
+        if self.mt5 is None:
+            raise RuntimeError("No se puede verificar posiciones: MT5 está desconectado.")
+        raw = self.mt5.positions_get(symbol=self.spec.symbol)
+        if raw is None:
+            raise RuntimeError("MT5 no pudo verificar las posiciones abiertas.")
         return [
             Position(p.ticket, p.symbol, 1 if p.type == self.mt5.POSITION_TYPE_BUY else -1, p.volume,
-                     p.price_open, p.sl, p.tp, pd.Timestamp(p.time, unit="s", tz="UTC"))
-            for p in raw if p.magic == MAGIC_NUMBER
+                     p.price_open, p.sl, p.tp, pd.Timestamp(p.time, unit="s", tz="UTC"),
+                     int(getattr(p, "magic", 0)), getattr(p, "identifier", None))
+            for p in raw
         ]
 
     def entry_quote(self, side: int) -> float | None:
@@ -266,7 +284,8 @@ class MT5Broker(BaseBroker):
         age = max(0.0, time_module.time() - float(getattr(tick, "time", 0)))
         if age > 120:
             return {"ok": False, "reason": "cotización obsoleta", "tick_age_seconds": age}
-        if not account.trade_allowed or not getattr(terminal, "trade_allowed", False):
+        if (not self.read_only
+                and (not account.trade_allowed or not getattr(terminal, "trade_allowed", False))):
             return {"ok": False, "reason": "permisos de trading desactivados", "tick_age_seconds": age}
         if int(getattr(info, "trade_mode", 4)) != 4:
             return {"ok": False, "reason": "símbolo no está en modo de trading completo",
@@ -298,6 +317,9 @@ class MT5Broker(BaseBroker):
         mt5 = self.mt5
         if mt5 is None or side not in (-1, 1) or not all(map(math.isfinite, [lots, sl, tp])):
             log.error("Orden rechazada: conexión, dirección o valores numéricos inválidos.")
+            return None
+        if self.read_only:
+            log.error("Orden bloqueada: este broker fue creado en modo solo lectura/análisis.")
             return None
         if sl <= 0 or tp <= 0:
             log.error("Orden rechazada: toda operación requiere Stop Loss y Take Profit válidos.")
@@ -350,8 +372,12 @@ class MT5Broker(BaseBroker):
         if existing is None:
             log.warning("Orden bloqueada: no se pudo verificar la exposición existente.")
             return None
-        if any(position.magic == MAGIC_NUMBER for position in existing):
-            log.warning("Orden bloqueada: ya hay una posición del agente en el símbolo.")
+        pending = mt5.orders_get(symbol=self.spec.symbol)
+        if pending is None:
+            log.warning("Orden bloqueada: no se pudieron verificar las órdenes pendientes.")
+            return None
+        if existing or pending:
+            log.warning("Orden bloqueada: existe posición u orden pendiente en el símbolo; exposición desconocida o incompatible.")
             return None
         order_type = mt5.ORDER_TYPE_BUY if side == 1 else mt5.ORDER_TYPE_SELL
         px = tick.ask if side == 1 else tick.bid
@@ -428,6 +454,9 @@ class MT5Broker(BaseBroker):
         return pos
 
     def close_position(self, position, price=None, time=None, reason="MANUAL") -> None:
+        if position.magic != MAGIC_NUMBER:
+            log.error("Cierre bloqueado: la posición #%s no pertenece al agente.", position.ticket)
+            return
         mt5 = self.mt5
         tick = mt5.symbol_info_tick(position.symbol)
         sym = mt5.symbol_info(position.symbol)
@@ -490,3 +519,9 @@ class MT5DemoBroker(MT5Broker):
 
     def __init__(self, cfg: MT5Config, spec: SymbolSpec, deviation: int = 20) -> None:
         super().__init__(cfg, spec, allow_live=False, deviation=deviation)
+
+    def _validate_account(self, mt5) -> None:
+        super()._validate_account(mt5)
+        info = mt5.account_info()
+        if info is None or info.trade_mode != mt5.ACCOUNT_TRADE_MODE_DEMO:
+            raise PermissionError("Modo demo bloqueado: MT5 no confirmó una cuenta DEMO.")

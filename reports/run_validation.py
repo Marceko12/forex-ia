@@ -68,9 +68,10 @@ def main():
     raw = load_csv(DATA_PATH)
     indicators = add_all_indicators(raw)
     n = len(indicators)
-    train_end, validation_end = int(n * .60), int(n * .80)
+    train_end, selection_end, validation_end = int(n * .50), int(n * .70), int(n * .85)
     train = indicators.iloc[:train_end]
-    validation = indicators.iloc[train_end:validation_end]
+    selection = indicators.iloc[train_end:selection_end]
+    validation = indicators.iloc[selection_end:validation_end]
     test = indicators.iloc[validation_end:]
 
     # The file is named EURUSDmicro in the application log. These provisional
@@ -97,9 +98,11 @@ def main():
                  "broker_identity_and_specs_confirmed": False,
                  "provisional_micro_contract_assumption": {"contract_size": 1000, "min_lot": 0.1,
                                                            "max_lot": 100, "volume_step": 0.01}},
-        "split": {"method": "chronological 60/20/20; no parameter tuning on validation or test",
+        "split": {"method": "chronological 50/20/15/15 train/selection/validation/final test; test diagnostic only",
                   "train_rows": len(train), "validation_rows": len(validation), "test_rows": len(test),
+                  "selection_rows": len(selection),
                   "train_start": train.index[0].isoformat(), "train_end": train.index[-1].isoformat(),
+                  "selection_start": selection.index[0].isoformat(), "selection_end": selection.index[-1].isoformat(),
                   "validation_start": validation.index[0].isoformat(), "validation_end": validation.index[-1].isoformat(),
                   "test_start": test.index[0].isoformat(), "test_end": test.index[-1].isoformat()},
         "model": {"fit_data": "training segment only; AIModel internal chronological 80/20 split with horizon purge",
@@ -120,7 +123,7 @@ def main():
         ],
     }
 
-    for period_name, period in (("validation", validation), ("test", test)):
+    for period_name, period in (("selection", selection), ("validation", validation), ("test", test)):
         for case in cost_cases:
             bt_cfg = BacktestConfig(initial_balance=INITIAL_BALANCE,
                                     spread_pips=case["spread_pips"],
@@ -187,7 +190,8 @@ def main():
     }
     OUTPUT_PATH.write_text(json.dumps(clean(result), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Wrote {OUTPUT_PATH}")
-    print(f"Rows: {n}; split: {len(train)}/{len(validation)}/{len(test)}")
+    print(f"Rows: {n}; split train/selection/validation/test: "
+          f"{len(train)}/{len(selection)}/{len(validation)}/{len(test)}")
     print(f"Internal AUC: {internal_validation.get('val_auc')}; external val: {result['model']['external_validation']}; test: {result['model']['test_prediction_metrics']}")
     print(f"Prior report rules attempt: {result['prior_report_reproduction_attempt']['rules']}")
     print(f"Prior report hybrid attempt: {result['prior_report_reproduction_attempt']['hybrid']}")

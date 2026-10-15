@@ -66,6 +66,12 @@ class SymbolSpec:
     tick_size: float = 0.0
     tick_value_profit: float = 0.0
     tick_value_loss: float = 0.0
+    point: float = 0.0
+    digits: int = 0
+    trade_stops_level: int = 0
+    trade_mode: int | None = None
+    currency_profit: str = ""
+    currency_margin: str = ""
 
     def pip_value_per_lot(self, price: float) -> float:
         """Valor conservador de un pip por lote, en moneda de la cuenta."""

@@ -1,11 +1,22 @@
 {
   "data": {
-    "path": "data/market_data.csv",
+    "path": "C:\\Users\\USUARIO\\Downloads\\forex-ai\\data\\market_data.csv",
     "sha256": "512d65e10248a09d7a9b592aa90201c31226cef99ed49367cb6b2e9fb1f13cc1",
     "rows": 5000,
     "first": "2026-07-31T16:45:00+00:00",
     "last": "2026-10-13T18:30:00+00:00",
-    "source_authenticated": false
+    "source_authenticated": false,
+    "manifest_path": null,
+    "manifest_hash_matches": false,
+    "source_verified_locally": false,
+    "provisional_spec_assumption": {
+      "symbol": "EURUSDmicro",
+      "contract_size": 1000,
+      "volume_min": 0.1,
+      "volume_max": 100,
+      "volume_step": 0.01
+    },
+    "manifest_completeness_claim": null
   },
   "cost_assumptions": {
     "spread_pips": 1.0,
@@ -13,12 +24,37 @@
     "slippage_pips_each_side": 0.2,
     "account_symbol_spec_confirmed": false
   },
+  "split": {
+    "method": "chronological train/selection/validation/final-test 50/20/15/15",
+    "train": {
+      "rows": 2500,
+      "start": "2026-07-31T16:45:00+00:00",
+      "end": "2026-09-07T17:30:00+00:00"
+    },
+    "selection": {
+      "rows": 1000,
+      "start": "2026-09-07T17:45:00+00:00",
+      "end": "2026-09-22T03:30:00+00:00"
+    },
+    "validation": {
+      "rows": 750,
+      "start": "2026-09-22T03:45:00+00:00",
+      "end": "2026-10-01T23:00:00+00:00"
+    },
+    "final_test": {
+      "rows": 750,
+      "start": "2026-10-01T23:15:00+00:00",
+      "end": "2026-10-13T18:30:00+00:00",
+      "use": "diagnostic only; not used to select or tune"
+    }
+  },
   "selection": {
     "selected": null,
     "action_if_current_signal": "NO TRADE",
-    "reason": "no_candidate_passed_all_validation_periods",
-    "selection_uses": "3 chronological validation subperiods only",
-    "test_use": "diagnostic only; excluded from strategy selection"
+    "reason": "no_candidate_passed_selection",
+    "selection_uses": "three selection subperiods; independent validation gate",
+    "source_verified": false,
+    "test_use": "diagnostic only, only calculated after prior gates pass"
   },
   "candidate_metrics": {
     "rules_balanced": {
@@ -31,77 +67,60 @@
         "sl_atr_mult": 1.5,
         "rr_ratio": 2.0
       },
-      "validation_periods": [
+      "selection_periods": [
         {
           "initial_balance": 10000.0,
-          "final_equity": 9700.82,
-          "total_return_pct": -2.99,
-          "max_drawdown_pct": -2.99,
-          "sharpe_ratio": -22.44,
-          "sortino_ratio": -13.54,
-          "n_trades": 8,
-          "total_costs": 285.6,
+          "final_equity": 9392.77,
+          "total_return_pct": -6.07,
+          "max_drawdown_pct": -6.07,
+          "sharpe_ratio": -33.29,
+          "sortino_ratio": -14.67,
+          "n_trades": 17,
+          "total_costs": 606.9,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -37.4,
-          "expectancy": -37.4,
-          "avg_bars_in_trade": 16.5
+          "avg_loss": -35.72,
+          "expectancy": -35.72,
+          "avg_bars_in_trade": 8.5
         },
         {
           "initial_balance": 10000.0,
-          "final_equity": 9375.88,
-          "total_return_pct": -6.24,
-          "max_drawdown_pct": -6.24,
-          "sharpe_ratio": -320.5,
-          "sortino_ratio": -15.86,
-          "n_trades": 18,
-          "total_costs": 642.6,
+          "final_equity": 9519.86,
+          "total_return_pct": -4.8,
+          "max_drawdown_pct": -4.82,
+          "sharpe_ratio": -38.33,
+          "sortino_ratio": -15.04,
+          "n_trades": 14,
+          "total_costs": 499.8,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -34.67,
-          "expectancy": -34.67,
-          "avg_bars_in_trade": 8.6
+          "avg_loss": -34.3,
+          "expectancy": -34.3,
+          "avg_bars_in_trade": 12.1
         },
         {
           "initial_balance": 10000.0,
-          "final_equity": 9460.64,
-          "total_return_pct": -5.39,
-          "max_drawdown_pct": -5.48,
-          "sharpe_ratio": -29.74,
-          "sortino_ratio": -14.41,
-          "n_trades": 15,
-          "total_costs": 535.5,
+          "final_equity": 9556.0,
+          "total_return_pct": -4.44,
+          "max_drawdown_pct": -4.47,
+          "sharpe_ratio": -19.65,
+          "sortino_ratio": -13.01,
+          "n_trades": 12,
+          "total_costs": 428.4,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -35.96,
-          "expectancy": -35.96,
-          "avg_bars_in_trade": 11.3
+          "avg_loss": -37.0,
+          "expectancy": -37.0,
+          "avg_bars_in_trade": 10.9
         }
       ],
-      "test_diagnostic_only": {
-        "initial_balance": 10000.0,
-        "final_equity": 9006.71,
-        "total_return_pct": -9.93,
-        "max_drawdown_pct": -10.05,
-        "sharpe_ratio": -16.95,
-        "sortino_ratio": -11.87,
-        "n_trades": 29,
-        "total_costs": 1035.3,
-        "win_rate_pct": 0.0,
-        "profit_factor": 0.0,
-        "avg_win": 0.0,
-        "avg_loss": -34.25,
-        "expectancy": -34.25,
-        "avg_bars_in_trade": 6.9,
-        "halted_reason": "Drawdown máximo alcanzado (10.1% >= 10.0%)"
-      },
-      "validation_stability": {
+      "selection_stability": {
         "positive_periods": 0,
         "period_count": 3,
-        "return_range_pct": 3.25,
+        "return_range_pct": 1.63,
         "profitable_periods_required": 3
       }
     },
@@ -115,77 +134,60 @@
         "sl_atr_mult": 1.5,
         "rr_ratio": 2.0
       },
-      "validation_periods": [
+      "selection_periods": [
         {
           "initial_balance": 10000.0,
-          "final_equity": 9738.94,
-          "total_return_pct": -2.61,
-          "max_drawdown_pct": -2.61,
-          "sharpe_ratio": -25.06,
-          "sortino_ratio": -13.92,
-          "n_trades": 7,
-          "total_costs": 249.9,
+          "final_equity": 9392.4,
+          "total_return_pct": -6.08,
+          "max_drawdown_pct": -6.08,
+          "sharpe_ratio": -33.28,
+          "sortino_ratio": -14.67,
+          "n_trades": 17,
+          "total_costs": 606.9,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -37.29,
-          "expectancy": -37.29,
-          "avg_bars_in_trade": 18.4
+          "avg_loss": -35.74,
+          "expectancy": -35.74,
+          "avg_bars_in_trade": 8.5
         },
         {
           "initial_balance": 10000.0,
-          "final_equity": 9380.12,
-          "total_return_pct": -6.2,
-          "max_drawdown_pct": -6.35,
-          "sharpe_ratio": -215.61,
-          "sortino_ratio": -15.85,
-          "n_trades": 18,
-          "total_costs": 642.6,
+          "final_equity": 9625.76,
+          "total_return_pct": -3.74,
+          "max_drawdown_pct": -3.76,
+          "sharpe_ratio": -81.68,
+          "sortino_ratio": -15.68,
+          "n_trades": 11,
+          "total_costs": 392.7,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -34.44,
-          "expectancy": -34.44,
-          "avg_bars_in_trade": 8.6
+          "avg_loss": -34.02,
+          "expectancy": -34.02,
+          "avg_bars_in_trade": 13.7
         },
         {
           "initial_balance": 10000.0,
-          "final_equity": 9461.39,
-          "total_return_pct": -5.39,
-          "max_drawdown_pct": -5.47,
-          "sharpe_ratio": -29.77,
-          "sortino_ratio": -14.41,
-          "n_trades": 15,
-          "total_costs": 535.5,
+          "final_equity": 9556.33,
+          "total_return_pct": -4.44,
+          "max_drawdown_pct": -4.47,
+          "sharpe_ratio": -19.69,
+          "sortino_ratio": -13.01,
+          "n_trades": 12,
+          "total_costs": 428.4,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -35.91,
-          "expectancy": -35.91,
-          "avg_bars_in_trade": 11.1
+          "avg_loss": -36.97,
+          "expectancy": -36.97,
+          "avg_bars_in_trade": 10.4
         }
       ],
-      "test_diagnostic_only": {
-        "initial_balance": 10000.0,
-        "final_equity": 8962.28,
-        "total_return_pct": -10.38,
-        "max_drawdown_pct": -10.38,
-        "sharpe_ratio": -18.36,
-        "sortino_ratio": -12.27,
-        "n_trades": 29,
-        "total_costs": 1035.3,
-        "win_rate_pct": 0.0,
-        "profit_factor": 0.0,
-        "avg_win": 0.0,
-        "avg_loss": -35.78,
-        "expectancy": -35.78,
-        "avg_bars_in_trade": 7.0,
-        "halted_reason": "Drawdown máximo alcanzado (10.3% >= 10.0%)"
-      },
-      "validation_stability": {
+      "selection_stability": {
         "positive_periods": 0,
         "period_count": 3,
-        "return_range_pct": 3.5900000000000003,
+        "return_range_pct": 2.34,
         "profitable_periods_required": 3
       }
     },
@@ -199,77 +201,60 @@
         "sl_atr_mult": 2.0,
         "rr_ratio": 2.0
       },
-      "validation_periods": [
+      "selection_periods": [
         {
           "initial_balance": 10000.0,
-          "final_equity": 9735.18,
-          "total_return_pct": -2.65,
-          "max_drawdown_pct": -2.65,
-          "sharpe_ratio": -25.42,
-          "sortino_ratio": -13.96,
-          "n_trades": 7,
-          "total_costs": 249.9,
+          "final_equity": 9394.84,
+          "total_return_pct": -6.05,
+          "max_drawdown_pct": -6.08,
+          "sharpe_ratio": -23.9,
+          "sortino_ratio": -13.76,
+          "n_trades": 16,
+          "total_costs": 571.2,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -37.83,
-          "expectancy": -37.83,
-          "avg_bars_in_trade": 22.3
+          "avg_loss": -37.82,
+          "expectancy": -37.82,
+          "avg_bars_in_trade": 13.8
         },
         {
           "initial_balance": 10000.0,
-          "final_equity": 9407.75,
-          "total_return_pct": -5.92,
-          "max_drawdown_pct": -6.0,
-          "sharpe_ratio": -176.06,
-          "sortino_ratio": -15.83,
-          "n_trades": 17,
-          "total_costs": 606.9,
+          "final_equity": 9634.88,
+          "total_return_pct": -3.65,
+          "max_drawdown_pct": -3.67,
+          "sharpe_ratio": -50.43,
+          "sortino_ratio": -15.37,
+          "n_trades": 11,
+          "total_costs": 392.7,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -34.84,
-          "expectancy": -34.84,
-          "avg_bars_in_trade": 11.1
+          "avg_loss": -33.19,
+          "expectancy": -33.19,
+          "avg_bars_in_trade": 18.9
         },
         {
           "initial_balance": 10000.0,
-          "final_equity": 9629.35,
-          "total_return_pct": -3.71,
-          "max_drawdown_pct": -3.79,
-          "sharpe_ratio": -18.39,
-          "sortino_ratio": -12.72,
+          "final_equity": 9619.56,
+          "total_return_pct": -3.8,
+          "max_drawdown_pct": -3.83,
+          "sharpe_ratio": -21.32,
+          "sortino_ratio": -13.34,
           "n_trades": 10,
           "total_costs": 357.0,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -37.06,
-          "expectancy": -37.06,
-          "avg_bars_in_trade": 21.8
+          "avg_loss": -38.04,
+          "expectancy": -38.04,
+          "avg_bars_in_trade": 15.5
         }
       ],
-      "test_diagnostic_only": {
-        "initial_balance": 10000.0,
-        "final_equity": 8980.64,
-        "total_return_pct": -10.19,
-        "max_drawdown_pct": -10.19,
-        "sharpe_ratio": -20.98,
-        "sortino_ratio": -12.9,
-        "n_trades": 29,
-        "total_costs": 1035.3,
-        "win_rate_pct": 0.0,
-        "profit_factor": 0.0,
-        "avg_win": 0.0,
-        "avg_loss": -35.15,
-        "expectancy": -35.15,
-        "avg_bars_in_trade": 12.6,
-        "halted_reason": "Drawdown máximo alcanzado (10.2% >= 10.0%)"
-      },
-      "validation_stability": {
+      "selection_stability": {
         "positive_periods": 0,
         "period_count": 3,
-        "return_range_pct": 3.27,
+        "return_range_pct": 2.4,
         "profitable_periods_required": 3
       }
     },
@@ -283,77 +268,60 @@
         "sl_atr_mult": 1.5,
         "rr_ratio": 1.5
       },
-      "validation_periods": [
+      "selection_periods": [
         {
           "initial_balance": 10000.0,
-          "final_equity": 9634.65,
-          "total_return_pct": -3.65,
-          "max_drawdown_pct": -3.65,
-          "sharpe_ratio": -21.64,
-          "sortino_ratio": -13.4,
-          "n_trades": 10,
-          "total_costs": 357.0,
+          "final_equity": 9388.89,
+          "total_return_pct": -6.11,
+          "max_drawdown_pct": -6.11,
+          "sharpe_ratio": -33.19,
+          "sortino_ratio": -14.67,
+          "n_trades": 17,
+          "total_costs": 606.9,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -36.54,
-          "expectancy": -36.54,
-          "avg_bars_in_trade": 12.3
+          "avg_loss": -35.95,
+          "expectancy": -35.95,
+          "avg_bars_in_trade": 6.2
         },
         {
           "initial_balance": 10000.0,
-          "final_equity": 9368.09,
-          "total_return_pct": -6.32,
-          "max_drawdown_pct": -6.32,
-          "sharpe_ratio": -457.97,
-          "sortino_ratio": -15.87,
-          "n_trades": 18,
-          "total_costs": 642.6,
+          "final_equity": 9448.91,
+          "total_return_pct": -5.51,
+          "max_drawdown_pct": -5.57,
+          "sharpe_ratio": -78.27,
+          "sortino_ratio": -15.66,
+          "n_trades": 16,
+          "total_costs": 571.2,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -35.11,
-          "expectancy": -35.11,
-          "avg_bars_in_trade": 5.8
+          "avg_loss": -34.44,
+          "expectancy": -34.44,
+          "avg_bars_in_trade": 9.5
         },
         {
           "initial_balance": 10000.0,
-          "final_equity": 9475.27,
-          "total_return_pct": -5.25,
-          "max_drawdown_pct": -5.33,
-          "sharpe_ratio": -29.73,
-          "sortino_ratio": -14.41,
-          "n_trades": 15,
-          "total_costs": 535.5,
+          "final_equity": 9556.13,
+          "total_return_pct": -4.44,
+          "max_drawdown_pct": -4.5,
+          "sharpe_ratio": -19.18,
+          "sortino_ratio": -12.9,
+          "n_trades": 12,
+          "total_costs": 428.4,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -34.98,
-          "expectancy": -34.98,
+          "avg_loss": -36.99,
+          "expectancy": -36.99,
           "avg_bars_in_trade": 8.8
         }
       ],
-      "test_diagnostic_only": {
-        "initial_balance": 10000.0,
-        "final_equity": 9002.74,
-        "total_return_pct": -9.97,
-        "max_drawdown_pct": -10.02,
-        "sharpe_ratio": -15.64,
-        "sortino_ratio": -11.44,
-        "n_trades": 28,
-        "total_costs": 999.6,
-        "win_rate_pct": 0.0,
-        "profit_factor": 0.0,
-        "avg_win": 0.0,
-        "avg_loss": -35.62,
-        "expectancy": -35.62,
-        "avg_bars_in_trade": 4.6,
-        "halted_reason": "Drawdown máximo alcanzado (10.0% >= 10.0%)"
-      },
-      "validation_stability": {
+      "selection_stability": {
         "positive_periods": 0,
         "period_count": 3,
-        "return_range_pct": 2.6700000000000004,
+        "return_range_pct": 1.67,
         "profitable_periods_required": 3
       }
     },
@@ -367,77 +335,60 @@
         "sl_atr_mult": 1.5,
         "rr_ratio": 2.0
       },
-      "validation_periods": [
+      "selection_periods": [
         {
           "initial_balance": 10000.0,
-          "final_equity": 9479.63,
-          "total_return_pct": -5.2,
-          "max_drawdown_pct": -5.27,
-          "sharpe_ratio": -37.03,
-          "sortino_ratio": -14.88,
-          "n_trades": 15,
-          "total_costs": 535.5,
-          "win_rate_pct": 0.0,
-          "profit_factor": 0.0,
-          "avg_win": 0.0,
-          "avg_loss": -34.69,
-          "expectancy": -34.69,
-          "avg_bars_in_trade": 16.1
-        },
-        {
-          "initial_balance": 10000.0,
-          "final_equity": 9384.03,
-          "total_return_pct": -6.16,
-          "max_drawdown_pct": -6.16,
-          "sharpe_ratio": -68.53,
-          "sortino_ratio": -15.6,
+          "final_equity": 9373.28,
+          "total_return_pct": -6.27,
+          "max_drawdown_pct": -6.3,
+          "sharpe_ratio": -31.43,
+          "sortino_ratio": -14.54,
           "n_trades": 18,
           "total_costs": 642.6,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -34.22,
-          "expectancy": -34.22,
-          "avg_bars_in_trade": 11.2
+          "avg_loss": -34.82,
+          "expectancy": -34.82,
+          "avg_bars_in_trade": 9.2
         },
         {
           "initial_balance": 10000.0,
-          "final_equity": 9343.15,
-          "total_return_pct": -6.57,
-          "max_drawdown_pct": -6.57,
-          "sharpe_ratio": -86.11,
-          "sortino_ratio": -15.68,
-          "n_trades": 18,
-          "total_costs": 642.6,
+          "final_equity": 9262.53,
+          "total_return_pct": -7.37,
+          "max_drawdown_pct": -7.37,
+          "sharpe_ratio": -410.92,
+          "sortino_ratio": -15.87,
+          "n_trades": 20,
+          "total_costs": 714.0,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -36.49,
-          "expectancy": -36.49,
-          "avg_bars_in_trade": 12.8
+          "avg_loss": -36.87,
+          "expectancy": -36.87,
+          "avg_bars_in_trade": 6.2
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9463.95,
+          "total_return_pct": -5.36,
+          "max_drawdown_pct": -5.39,
+          "sharpe_ratio": -26.02,
+          "sortino_ratio": -14.04,
+          "n_trades": 16,
+          "total_costs": 571.2,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -33.5,
+          "expectancy": -33.5,
+          "avg_bars_in_trade": 14.2
         }
       ],
-      "test_diagnostic_only": {
-        "initial_balance": 10000.0,
-        "final_equity": 8973.81,
-        "total_return_pct": -10.26,
-        "max_drawdown_pct": -10.26,
-        "sharpe_ratio": -14.54,
-        "sortino_ratio": -11.03,
-        "n_trades": 29,
-        "total_costs": 1035.3,
-        "win_rate_pct": 0.0,
-        "profit_factor": 0.0,
-        "avg_win": 0.0,
-        "avg_loss": -35.39,
-        "expectancy": -35.39,
-        "avg_bars_in_trade": 9.0,
-        "halted_reason": "Drawdown máximo alcanzado (10.2% >= 10.0%)"
-      },
-      "validation_stability": {
+      "selection_stability": {
         "positive_periods": 0,
         "period_count": 3,
-        "return_range_pct": 1.37,
+        "return_range_pct": 2.01,
         "profitable_periods_required": 3
       }
     },
@@ -451,76 +402,60 @@
         "sl_atr_mult": 1.5,
         "rr_ratio": 2.0
       },
-      "validation_periods": [
+      "selection_periods": [
         {
           "initial_balance": 10000.0,
-          "final_equity": 9813.66,
-          "total_return_pct": -1.86,
-          "max_drawdown_pct": -1.86,
-          "sharpe_ratio": -21.77,
-          "sortino_ratio": -13.42,
+          "final_equity": 9726.33,
+          "total_return_pct": -2.74,
+          "max_drawdown_pct": -2.74,
+          "sharpe_ratio": -19.99,
+          "sortino_ratio": -13.08,
+          "n_trades": 8,
+          "total_costs": 285.6,
+          "win_rate_pct": 0.0,
+          "profit_factor": 0.0,
+          "avg_win": 0.0,
+          "avg_loss": -34.21,
+          "expectancy": -34.21,
+          "avg_bars_in_trade": 7.5
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 9826.09,
+          "total_return_pct": -1.74,
+          "max_drawdown_pct": -1.74,
+          "sharpe_ratio": -28.99,
+          "sortino_ratio": -14.49,
           "n_trades": 5,
           "total_costs": 178.5,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -37.27,
-          "expectancy": -37.27,
-          "avg_bars_in_trade": 22.4
+          "avg_loss": -34.78,
+          "expectancy": -34.78,
+          "avg_bars_in_trade": 12.6
         },
         {
           "initial_balance": 10000.0,
-          "final_equity": 9569.76,
-          "total_return_pct": -4.3,
-          "max_drawdown_pct": -4.33,
-          "sharpe_ratio": -124.02,
-          "sortino_ratio": -15.79,
-          "n_trades": 12,
-          "total_costs": 428.4,
+          "final_equity": 9810.99,
+          "total_return_pct": -1.89,
+          "max_drawdown_pct": -1.92,
+          "sharpe_ratio": -13.72,
+          "sortino_ratio": -11.21,
+          "n_trades": 5,
+          "total_costs": 178.5,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -35.85,
-          "expectancy": -35.85,
-          "avg_bars_in_trade": 10.2
-        },
-        {
-          "initial_balance": 10000.0,
-          "final_equity": 9784.01,
-          "total_return_pct": -2.16,
-          "max_drawdown_pct": -2.24,
-          "sharpe_ratio": -16.79,
-          "sortino_ratio": -12.3,
-          "n_trades": 6,
-          "total_costs": 214.2,
-          "win_rate_pct": 0.0,
-          "profit_factor": 0.0,
-          "avg_win": 0.0,
-          "avg_loss": -36.0,
-          "expectancy": -36.0,
-          "avg_bars_in_trade": 13.7
+          "avg_loss": -37.8,
+          "expectancy": -37.8,
+          "avg_bars_in_trade": 15.2
         }
       ],
-      "test_diagnostic_only": {
-        "initial_balance": 10000.0,
-        "final_equity": 9273.07,
-        "total_return_pct": -7.27,
-        "max_drawdown_pct": -7.29,
-        "sharpe_ratio": -34.07,
-        "sortino_ratio": -14.52,
-        "n_trades": 21,
-        "total_costs": 749.7,
-        "win_rate_pct": 0.0,
-        "profit_factor": 0.0,
-        "avg_win": 0.0,
-        "avg_loss": -34.61,
-        "expectancy": -34.61,
-        "avg_bars_in_trade": 11.4
-      },
-      "validation_stability": {
+      "selection_stability": {
         "positive_periods": 0,
         "period_count": 3,
-        "return_range_pct": 2.4399999999999995,
+        "return_range_pct": 1.0000000000000002,
         "profitable_periods_required": 3
       }
     },
@@ -534,80 +469,96 @@
         "sl_atr_mult": 1.5,
         "rr_ratio": 2.0
       },
-      "validation_periods": [
+      "selection_periods": [
         {
           "initial_balance": 10000.0,
-          "final_equity": 9961.96,
-          "total_return_pct": -0.38,
-          "max_drawdown_pct": -0.38,
-          "sharpe_ratio": -7.94,
-          "sortino_ratio": -7.94,
-          "n_trades": 1,
-          "total_costs": 35.7,
+          "final_equity": 9765.4,
+          "total_return_pct": -2.35,
+          "max_drawdown_pct": -2.35,
+          "sharpe_ratio": -22.94,
+          "sortino_ratio": -13.62,
+          "n_trades": 7,
+          "total_costs": 249.9,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -38.04,
-          "expectancy": -38.04,
+          "avg_loss": -33.52,
+          "expectancy": -33.52,
           "avg_bars_in_trade": 9.0
         },
         {
           "initial_balance": 10000.0,
-          "final_equity": 9681.03,
-          "total_return_pct": -3.19,
-          "max_drawdown_pct": -3.21,
-          "sharpe_ratio": -51.67,
-          "sortino_ratio": -15.4,
-          "n_trades": 9,
-          "total_costs": 321.3,
+          "final_equity": 9933.25,
+          "total_return_pct": -0.67,
+          "max_drawdown_pct": -0.67,
+          "sharpe_ratio": -9.17,
+          "sortino_ratio": -9.17,
+          "n_trades": 2,
+          "total_costs": 71.4,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -35.44,
-          "expectancy": -35.44,
-          "avg_bars_in_trade": 12.3
+          "avg_loss": -33.38,
+          "expectancy": -33.38,
+          "avg_bars_in_trade": 22.5
         },
         {
           "initial_balance": 10000.0,
-          "final_equity": 9858.68,
-          "total_return_pct": -1.41,
-          "max_drawdown_pct": -1.48,
-          "sharpe_ratio": -100.39,
-          "sortino_ratio": -15.73,
-          "n_trades": 4,
-          "total_costs": 142.8,
+          "final_equity": 9811.09,
+          "total_return_pct": -1.89,
+          "max_drawdown_pct": -1.92,
+          "sharpe_ratio": -13.68,
+          "sortino_ratio": -11.2,
+          "n_trades": 5,
+          "total_costs": 178.5,
           "win_rate_pct": 0.0,
           "profit_factor": 0.0,
           "avg_win": 0.0,
-          "avg_loss": -35.33,
-          "expectancy": -35.33,
-          "avg_bars_in_trade": 13.2
+          "avg_loss": -37.78,
+          "expectancy": -37.78,
+          "avg_bars_in_trade": 15.0
         }
       ],
-      "test_diagnostic_only": {
-        "initial_balance": 10000.0,
-        "final_equity": 9664.04,
-        "total_return_pct": -3.36,
-        "max_drawdown_pct": -3.44,
-        "sharpe_ratio": -16.19,
-        "sortino_ratio": -11.62,
-        "n_trades": 10,
-        "total_costs": 357.0,
-        "win_rate_pct": 0.0,
-        "profit_factor": 0.0,
-        "avg_win": 0.0,
-        "avg_loss": -33.59,
-        "expectancy": -33.59,
-        "avg_bars_in_trade": 11.9
-      },
-      "validation_stability": {
+      "selection_stability": {
         "positive_periods": 0,
         "period_count": 3,
-        "return_range_pct": 2.81,
+        "return_range_pct": 1.6800000000000002,
         "profitable_periods_required": 3
       }
     },
     "no_trade_reference": {
+      "selection_periods": [
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 10000.0,
+          "total_return_pct": 0.0,
+          "max_drawdown_pct": 0.0,
+          "n_trades": 0,
+          "total_costs": 0.0,
+          "profit_factor": 0.0,
+          "expectancy": 0.0
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 10000.0,
+          "total_return_pct": 0.0,
+          "max_drawdown_pct": 0.0,
+          "n_trades": 0,
+          "total_costs": 0.0,
+          "profit_factor": 0.0,
+          "expectancy": 0.0
+        },
+        {
+          "initial_balance": 10000.0,
+          "final_equity": 10000.0,
+          "total_return_pct": 0.0,
+          "max_drawdown_pct": 0.0,
+          "n_trades": 0,
+          "total_costs": 0.0,
+          "profit_factor": 0.0,
+          "expectancy": 0.0
+        }
+      ],
       "validation_periods": [
         {
           "initial_balance": 10000.0,
@@ -650,12 +601,21 @@
         "profit_factor": 0.0,
         "expectancy": 0.0
       },
-      "validation_stability": {
+      "selection_stability": {
         "positive_periods": 0,
         "period_count": 3,
         "return_range_pct": 0.0,
         "profitable_periods_required": 3
       }
+    },
+    "evaluation_protocol": {
+      "train_fraction": 0.5,
+      "selection_fraction": 0.2,
+      "validation_fraction": 0.15,
+      "final_test_fraction": 0.15,
+      "source_verified": false,
+      "provisional_recipe": null,
+      "test_is_diagnostic_only": true
     }
   },
   "limits": [

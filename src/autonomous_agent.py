@@ -13,6 +13,7 @@ import pandas as pd
 
 from config import Settings
 from src.indicators import add_all_indicators
+from src.broker_demo import MAGIC_NUMBER
 from src.strategy_evaluator import Evaluation, StrategyEvaluator
 
 log = logging.getLogger(__name__)
@@ -194,6 +195,8 @@ class AutonomousAgent:
             positions = self.broker.open_positions()
             position_notes = []
             for pos in positions:
+                if getattr(pos, "magic", 0) != MAGIC_NUMBER:
+                    continue  # Manual/foreign exposure is visible, never managed automatically.
                 bars_held = max(0, int((pd.Timestamp(candle) - pos.open_time).total_seconds()
                                        // (tf_minutes * 60)))
                 if bars_held >= self.settings.strategy.max_bars_in_trade:

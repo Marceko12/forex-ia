@@ -21,6 +21,9 @@ class FakeMT5:
         self.shutdown_called = False
         self.order_check_retcode = 0
         self.order_send_calls = 0
+        self.raise_on_send = False
+        self.send_retcode = 10009
+        self.tick_age = 0
         self.requests = []
 
     init_ok = True
@@ -45,7 +48,7 @@ class FakeMT5:
                                                      trade_contract_size=100000, point=0.00001,
                                                      trade_stops_level=10, trade_mode=4,
                                                      trade_tick_size=0.00001, trade_tick_value_loss=1.0)
-    def symbol_info_tick(self, s): return SimpleNamespace(bid=1.10000, ask=1.10010, time=time.time())
+    def symbol_info_tick(self, s): return SimpleNamespace(bid=1.10000, ask=1.10010, time=time.time() - self.tick_age)
     def order_calc_profit(self, kind, symbol, volume, opening, closing):
         return -abs(closing - opening) * 100000 * volume
     def order_calc_margin(self, kind, symbol, volume, price): return 10.0
@@ -54,9 +57,12 @@ class FakeMT5:
         return SimpleNamespace(retcode=self.order_check_retcode)
     def order_send(self, request):
         self.order_send_calls += 1
-        return SimpleNamespace(retcode=self.TRADE_RETCODE_DONE, order=123, price=request["price"])
+        if self.raise_on_send:
+            raise TimeoutError("simulated ambiguous timeout")
+        return SimpleNamespace(retcode=self.send_retcode, order=123, price=request["price"])
     def shutdown(self): self.shutdown_called = True
     def positions_get(self, **kwargs): return []
+    def orders_get(self, **kwargs): return []
 
 
 def _connect(fake, allow_live):
@@ -99,6 +105,16 @@ def test_demo_alias_never_allows_live():
     bd._import_mt5 = lambda: FakeMT5(trade_mode=2)
     try:
         _expect(PermissionError, lambda: bd.MT5DemoBroker(MT5Config(), get_symbol_spec("EURUSD")).connect())
+    finally:
+        bd._import_mt5 = original
+
+
+def test_demo_broker_requires_explicit_demo_trade_mode():
+    original = bd._import_mt5
+    bd._import_mt5 = lambda: FakeMT5(trade_mode=1)
+    try:
+        broker = bd.MT5DemoBroker(MT5Config(), get_symbol_spec("EURUSD"))
+        _expect(PermissionError, broker.connect)
     finally:
         bd._import_mt5 = original
 
@@ -158,6 +174,101 @@ def test_order_is_blocked_when_worst_case_loss_exceeds_budget():
     assert broker.market_order(1, 0.01, sl=1.098, tp=1.104, max_loss=0.01) is None
     assert fake.order_send_calls == 0
     broker.disconnect()
+
+
+def test_order_is_blocked_by_manual_position_or_pending_order(monkeypatch):
+    fake = FakeMT5()
+    broker = _connect(fake, allow_live=False)
+    monkeypatch.setattr(bd, "append_trades", lambda _: None)
+    fake.positions_get = lambda **kwargs: [SimpleNamespace(magic=0)]
+    assert broker.market_order(1, 0.01, sl=1.098, tp=1.104, max_loss=100) is None
+    assert fake.order_send_calls == 0
+    fake.positions_get = lambda **kwargs: []
+    fake.orders_get = lambda **kwargs: [SimpleNamespace(magic=0)]
+    assert broker.market_order(1, 0.01, sl=1.098, tp=1.104, max_loss=100) is None
+    assert fake.order_send_calls == 0
+
+
+def test_order_is_blocked_when_pending_state_is_unverifiable():
+    fake = FakeMT5()
+    fake.orders_get = lambda **kwargs: None
+    broker = _connect(fake, allow_live=False)
+    assert broker.market_order(1, 0.01, sl=1.098, tp=1.104, max_loss=100) is None
+    assert fake.order_send_calls == 0
+
+
+def test_read_only_real_connection_cannot_send_orders():
+    fake = FakeMT5(trade_mode=2, trade_allowed=False, algo_allowed=False)
+    original = bd._import_mt5
+    bd._import_mt5 = lambda: fake
+    try:
+        broker = bd.MT5Broker(MT5Config(), get_symbol_spec("EURUSD"),
+                              allow_read_only_real=True, read_only=True)
+        broker.connect()
+        assert broker.is_live
+        assert broker.market_conditions()["ok"]  # read-only analysis needs no trade permission
+        assert broker.market_order(1, 0.01, sl=1.098, tp=1.104, max_loss=100) is None
+        assert fake.order_send_calls == 0
+    finally:
+        bd._import_mt5 = original
+
+
+def test_order_send_timeout_is_not_retried():
+    fake = FakeMT5()
+    fake.raise_on_send = True
+    broker = _connect(fake, allow_live=False)
+    try:
+        broker.market_order(1, 0.01, sl=1.098, tp=1.104, max_loss=100)
+    except TimeoutError:
+        pass
+    else:
+        raise AssertionError("El timeout simulado debía propagarse sin reintento")
+    assert fake.order_send_calls == 1
+
+
+def test_stale_quote_blocks_analysis_and_order():
+    fake = FakeMT5()
+    fake.tick_age = 300
+    broker = _connect(fake, allow_live=False)
+    assert not broker.market_conditions()["ok"]
+    assert broker.market_order(1, 0.01, sl=1.098, tp=1.104, max_loss=100) is None
+    assert fake.order_send_calls == 0
+
+
+def test_partial_or_rejected_order_send_is_never_retried(monkeypatch):
+    fake = FakeMT5()
+    fake.send_retcode = fake.TRADE_RETCODE_DONE_PARTIAL
+    broker = _connect(fake, allow_live=False)
+    monkeypatch.setattr(bd, "append_trades", lambda _: None)
+    assert broker.market_order(1, 0.01, sl=1.098, tp=1.104, max_loss=100) is None
+    assert fake.order_send_calls == 1
+
+    fake2 = FakeMT5()
+    fake2.send_retcode = 10016
+    broker2 = _connect(fake2, allow_live=False)
+    assert broker2.market_order(1, 0.01, sl=1.098, tp=1.104, max_loss=100) is None
+    assert fake2.order_send_calls == 1
+
+
+def test_open_positions_includes_manual_exposure_and_fails_closed():
+    fake = FakeMT5()
+    fake.POSITION_TYPE_BUY = 0
+    broker = _connect(fake, allow_live=False)
+    fake.positions_get = lambda **kwargs: [SimpleNamespace(
+        ticket=7, symbol="EURUSD", type=0, volume=.01, price_open=1.1,
+        sl=1.09, tp=1.12, time=1, magic=0, identifier=7)]
+    result = broker.open_positions()
+    assert len(result) == 1 and result[0].magic == 0
+    manual = result[0]
+    broker.close_position(manual)
+    assert fake.order_send_calls == 0
+    fake.positions_get = lambda **kwargs: None
+    try:
+        broker.open_positions()
+    except RuntimeError as exc:
+        assert "verificar las posiciones" in str(exc)
+    else:
+        raise AssertionError("Debe bloquear si no puede verificar la exposición")
 
 
 # ------------------------- confirmación escrita --------------------------- #

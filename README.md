@@ -30,6 +30,7 @@ cp .env.example .env             # y completa credenciales de una cuenta DEMO de
 
 ```bash
 python app.py download --source synthetic   # o --source mt5 (Windows + MetaTrader 5 abierto)
+python app.py download-range --symbol EURUSDmicro --timeframe M15 --from 2025-01-01T00:00:00Z --to 2026-01-01T00:00:00Z
 python app.py train                         # entrena y guarda models/forex_model.joblib
 python app.py backtest --mode rules         # solo reglas técnicas
 python app.py backtest --mode ai            # solo modelo de IA
@@ -37,6 +38,8 @@ python app.py backtest --mode hybrid        # reglas + confirmación de la IA
 python app.py demo --broker paper           # simula trading sobre las últimas velas
 python app.py demo --broker mt5             # cuenta DEMO de MT5 (rechaza cuentas reales)
 python app.py demo --broker mt5 --live      # cuenta REAL (ver sección siguiente)
+python app.py paper --timeframe M15         # replay histórico; sin conectar con MT5
+python app.py analyze --symbol EURUSDmicro --timeframe M15 --cycle-minutes 15 # análisis MT5 solo lectura
 python app.py autonomous --symbol EURUSDmicro --cycle-minutes 15  # análisis periódico, sin órdenes
 python app.py autonomous --symbol EURUSDmicro --cycle-minutes 10  # intervalo alternativo
 python -m pytest -q -p no:cacheprovider    # tests
@@ -45,12 +48,19 @@ python -m pytest -q -p no:cacheprovider    # tests
 Opciones útiles: `--symbol GBPUSD --timeframe M15 --mode hybrid --log-level DEBUG`.
 
 El comando `autonomous` usa M15 por defecto, lee velas cerradas y evalúa reglas, IA e híbrida
-con entrenamiento/validación/test cronológicos. Solo selecciona una estrategia si supera
-los filtros en cada subperiodo de validación; el test queda reservado para diagnóstico.
-Si ninguna califica, registra `NO TRADE`. Las decisiones van a `logs/autonomous_decisions.jsonl`
+con divisiones cronológicas train/selection/validation/test de 50/20/15/15%. Solo selecciona
+una receta predefinida si supera filtros de selección y una puerta independiente de validación;
+el test final es diagnóstico y la fuente debe estar verificada. Si no, registra `NO TRADE`.
+Las decisiones van a `logs/autonomous_decisions.jsonl`
 y la vela procesada y límites de riesgo a `logs/autonomous_state.json`. No ejecuta órdenes
 por defecto. `--execute` habilita órdenes de la sesión MT5 conectada; una cuenta REAL sigue
 requiriendo `--live`, el gate de entorno y la confirmación escrita existentes.
+
+`download-range` requiere fechas ISO-8601 con zona horaria, nombre exacto del símbolo y una sesión MT5.
+Escribe columnas nativas MT5, un alias `volume` compatible con el evaluador y un manifest sin sobrescribir
+archivos existentes. El manifest lista huecos/chunks vacíos y marca completitud como no certificada por MT5.
+El comando `analyze` es de solo lectura incluso si se conecta a una cuenta real; `demo --broker mt5`
+y `autonomous --execute` sin `--live` exigen trade_mode DEMO explícito.
 
 ## Modo real (dinero real)
 

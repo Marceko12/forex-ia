@@ -12,7 +12,10 @@ open, high, low, close, volume.
 from __future__ import annotations
 
 import logging
+import hashlib
+import json
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -24,6 +27,8 @@ log = logging.getLogger(__name__)
 
 OHLCV = ["open", "high", "low", "close", "volume"]
 TIMEFRAMES = ("M1", "M5", "M15", "M30", "H1", "H4", "D1")
+AUTONOMOUS_TIMEFRAMES = ("M15", "M30", "H1", "H4")
+_TIMEFRAME_SECONDS = {"M15": 900, "M30": 1800, "H1": 3600, "H4": 14400}
 _PANDAS_FREQ = {"M1": "1min", "M5": "5min", "M15": "15min", "M30": "30min",
                 "H1": "1h", "H4": "4h", "D1": "1D"}
 
@@ -136,6 +141,152 @@ def fetch_mt5(settings: Settings, n_bars: int | None = None, start_pos: int = 1)
     df = df[OHLCV].sort_index()
     log.info("MT5: %d velas de %s %s descargadas", len(df), symbol, tf_name)
     return df
+
+
+def parse_utc_datetime(value: str | datetime | pd.Timestamp) -> datetime:
+    """Parse an ISO timestamp with an explicit timezone and normalize to UTC."""
+    result = pd.Timestamp(value)
+    if result.tzinfo is None:
+        raise ValueError("La fecha debe incluir zona horaria, por ejemplo 2026-01-01T00:00:00Z.")
+    return result.tz_convert("UTC").to_pydatetime()
+
+
+def validate_mt5_rates(rates, start: datetime, end: datetime) -> pd.DataFrame:
+    """Preserve MT5 columns, add evaluator's `volume`, and validate raw bars."""
+    if rates is None or len(rates) == 0:
+        raise ValueError("MT5 no devolvió velas para el intervalo solicitado.")
+    frame = pd.DataFrame(rates)
+    required = {"time", "open", "high", "low", "close", "tick_volume", "spread", "real_volume"}
+    missing = sorted(required.difference(frame.columns))
+    if missing:
+        raise ValueError(f"La respuesta MT5 carece de columnas: {missing}")
+    frame["time"] = pd.to_datetime(frame["time"], unit="s", utc=True)
+    frame = frame.sort_values("time", kind="stable").reset_index(drop=True)
+    if frame["time"].duplicated().any():
+        raise ValueError("El bloque MT5 contiene timestamps duplicados.")
+    start_ts, end_ts = pd.Timestamp(start), pd.Timestamp(end)
+    if ((frame["time"] < start_ts) | (frame["time"] > end_ts)).any():
+        raise ValueError("MT5 devolvió barras fuera del rango UTC solicitado.")
+    numeric = ["open", "high", "low", "close", "tick_volume", "spread", "real_volume"]
+    frame[numeric] = frame[numeric].apply(pd.to_numeric, errors="coerce")
+    if not np.isfinite(frame[numeric].to_numpy(float)).all():
+        raise ValueError("La descarga MT5 contiene precios/volúmenes/spread no finitos.")
+    price = frame[["open", "high", "low", "close"]]
+    if ((price <= 0).any().any() or (frame[["tick_volume", "real_volume", "spread"]] < 0).any().any()
+            or (frame["high"] < price[["open", "close"]].max(axis=1)).any()
+            or (frame["low"] > price[["open", "close"]].min(axis=1)).any()
+            or (frame["high"] < frame["low"]).any()):
+        raise ValueError("La descarga MT5 contiene precios o velas inválidas.")
+    frame["volume"] = frame["tick_volume"]
+    return frame
+
+
+def download_mt5_history(mt5, symbol: str, timeframe: str, date_from, date_to,
+                         chunk_days: int = 30) -> tuple[pd.DataFrame, dict]:
+    """Download a verifiable range from an already-connected terminal.
+
+    Requires an exact symbol name; it deliberately does not substitute a suffix.
+    Gaps and empty chunks are reported, not silently declared complete.
+    """
+    if timeframe not in AUTONOMOUS_TIMEFRAMES:
+        raise ValueError(f"Timeframe histórico no admitido: {timeframe}; usa {AUTONOMOUS_TIMEFRAMES}.")
+    symbol_info = mt5.symbol_info(symbol) if symbol else None
+    if not symbol or symbol_info is None:
+        raise ValueError(f"Símbolo exacto no disponible en MT5: {symbol}")
+    start, end = parse_utc_datetime(date_from), parse_utc_datetime(date_to)
+    if end <= start:
+        raise ValueError("date_to debe ser posterior a date_from.")
+    if chunk_days < 1 or chunk_days > 365:
+        raise ValueError("chunk_days debe estar entre 1 y 365.")
+    if not mt5.symbol_select(symbol, True):
+        raise RuntimeError(f"No se pudo habilitar consulta del símbolo exacto {symbol}.")
+    tf_const = getattr(mt5, f"TIMEFRAME_{timeframe}", None)
+    if tf_const is None:
+        raise RuntimeError(f"La versión de MT5 no expone TIMEFRAME_{timeframe}.")
+
+    blocks: list[pd.DataFrame] = []
+    chunks: list[dict] = []
+    cursor = start
+    while cursor <= end:
+        chunk_end = min(cursor + timedelta(days=chunk_days), end)
+        rates = mt5.copy_rates_range(symbol, tf_const, cursor, chunk_end)
+        count = 0 if rates is None else len(rates)
+        chunks.append({"from_utc": cursor.isoformat(), "to_utc": chunk_end.isoformat(), "rows": count})
+        if rates is not None and count:
+            blocks.append(validate_mt5_rates(rates, cursor, chunk_end))
+        if chunk_end >= end:
+            break
+        cursor = chunk_end
+
+    if not blocks:
+        raise RuntimeError(f"MT5 no devolvió datos en el rango para {symbol} {timeframe}: {mt5.last_error()}")
+    combined = pd.concat(blocks, ignore_index=True).sort_values("time", kind="stable")
+    duplicates = combined["time"].duplicated(keep=False)
+    boundary_duplicates = 0
+    if duplicates.any():
+        for _, group in combined.loc[duplicates].groupby("time", sort=False):
+            if len(group.drop_duplicates()) != 1:
+                raise ValueError("La descarga por fragmentos produjo timestamps conflictivos.")
+        boundary_duplicates = int(combined["time"].duplicated().sum())
+        combined = combined.drop_duplicates("time", keep="first")
+    combined = combined.sort_values("time", kind="stable").reset_index(drop=True)
+    gaps = []
+    max_seconds = _TIMEFRAME_SECONDS[timeframe]
+    deltas = combined["time"].diff().dt.total_seconds()
+    for pos in np.flatnonzero(deltas.to_numpy() > max_seconds * 1.5):
+        gaps.append({"from_utc": combined.loc[pos - 1, "time"].isoformat(),
+                     "to_utc": combined.loc[pos, "time"].isoformat(),
+                     "minutes": float(deltas.iloc[pos] / 60)})
+    returned = combined["time"]
+    terminal = mt5.terminal_info() if callable(getattr(mt5, "terminal_info", None)) else None
+    max_bars = getattr(terminal, "maxbars", None) if terminal is not None else None
+    manifest = {
+        "source": "MetaTrader5.copy_rates_range", "symbol": symbol, "timeframe": timeframe,
+        "requested_from_utc": start.isoformat(), "requested_to_utc": end.isoformat(),
+        "first_bar_utc": returned.iloc[0].isoformat(), "last_bar_utc": returned.iloc[-1].isoformat(),
+        "rows": int(len(combined)), "empty_chunks": sum(c["rows"] == 0 for c in chunks),
+        "terminal_maxbars": max_bars,
+        "rows_at_or_above_terminal_maxbars": bool(max_bars and len(combined) >= int(max_bars)),
+        "symbol_specifications": {
+            key: getattr(symbol_info, key, None) for key in (
+                "trade_mode", "volume_min", "volume_max", "volume_step", "trade_tick_size",
+                "trade_tick_value", "trade_tick_value_profit", "trade_tick_value_loss", "point",
+                "digits", "trade_stops_level", "currency_profit", "currency_margin",
+                "trade_contract_size", "spread",
+            )
+        },
+        "identical_chunk_boundary_duplicates_removed": boundary_duplicates,
+        "gaps_over_1_5_bars": gaps, "chunks": chunks,
+        "complete": False,
+        "completeness_note": "MT5 does not certify full historical coverage; compare requested endpoints, gaps, terminal Max bars and broker history before treating as complete.",
+        "validation": "UTC, required raw MT5 columns, strict timestamps, OHLC and finite/nonnegative fields checked",
+    }
+    return combined, manifest
+
+
+def save_mt5_history(frame: pd.DataFrame, manifest: dict, output: Path) -> tuple[Path, Path]:
+    """Create raw MT5 CSV and a manifest without overwriting either file."""
+    output = Path(output)
+    sidecar = output.with_suffix(output.suffix + ".manifest.json")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists() or sidecar.exists():
+        raise FileExistsError(f"El destino o su manifest ya existe; se conserva: {output}")
+    raw = frame.copy()
+    raw["time"] = pd.to_datetime(raw["time"], utc=True).map(lambda value: value.isoformat())
+    csv_bytes = raw.to_csv(index=False).encode("utf-8")
+    enriched = dict(manifest)
+    enriched["sha256"] = hashlib.sha256(csv_bytes).hexdigest()
+    enriched["csv_file"] = output.name
+    with output.open("xb") as stream:
+        stream.write(csv_bytes)
+    try:
+        with sidecar.open("x", encoding="utf-8") as stream:
+            json.dump(enriched, stream, indent=2, ensure_ascii=False)
+            stream.write("\n")
+    except Exception:
+        # Keep the CSV as evidence; never overwrite or silently remove it.
+        raise
+    return output, sidecar
 
 
 # --------------------------------------------------------------------------- #

@@ -53,6 +53,12 @@ class ExecutableFakeBroker(FakeBroker):
         return pos
 
 
+class TimeoutFakeBroker(ExecutableFakeBroker):
+    def market_order(self, side, lots, sl, tp, **kwargs):
+        self.orders += 1
+        raise TimeoutError("ambiguous broker response")
+
+
 class ReconnectableFakeBroker(FakeBroker):
     def __init__(self):
         super().__init__()
@@ -167,6 +173,20 @@ def test_cycle_blocks_new_entry_if_existing_position_has_invalid_stops(tmp_path)
     assert broker.orders == 0
 
 
+def test_cycle_sees_manual_position_and_never_manages_it(tmp_path):
+    broker, evaluator = FakeBroker(), SelectingEvaluator()
+    manual = Position(44, "EURUSD", 1, .01, 1.1, 1.09, 1.12,
+                      pd.Timestamp.now(tz="UTC") - pd.Timedelta(minutes=15), magic=0)
+    broker.positions = [manual]
+    agent, _, _ = _agent(tmp_path, broker, evaluator)
+    agent.execute = True
+    result = agent.cycle()
+    assert result.action == "NO TRADE"
+    assert "ya existe posición" in " ".join(result.reasons)
+    assert broker.orders == 0
+    assert broker.positions == [manual]
+
+
 def test_cycle_recovers_after_fetch_disconnect_without_order(tmp_path):
     calls = {"n": 0}
 
@@ -202,6 +222,18 @@ def test_execution_attempt_is_not_repeated_for_same_closed_candle(tmp_path):
     assert broker.orders == 1
     assert "vela ya procesada" in second.reasons[0]
     assert evaluator.calls == 1
+
+
+def test_ambiguous_order_timeout_is_not_retried_for_same_candle(tmp_path):
+    broker, evaluator = TimeoutFakeBroker(), SelectingEvaluator()
+    agent, _, _ = _agent(tmp_path, broker, evaluator)
+    agent.execute = True
+    first = agent.cycle()
+    second = agent.cycle()
+    assert first.action == "NO TRADE"
+    assert "TimeoutError" in " ".join(first.reasons)
+    assert "vela ya procesada" in second.reasons[0]
+    assert broker.orders == 1
 
 
 @pytest.mark.parametrize("minutes,expected", [(10, [600, 600]), (15, [900, 900])])
@@ -290,11 +322,19 @@ def test_strategy_evaluator_selects_from_bounded_recipes_without_test_tuning(mon
                         "rsi": 55.0, "macd_hist": .00001, "atr": .0002}, index=idx)
     evaluator = StrategyEvaluator(SymbolSpec("EURUSD", .0001), BacktestConfig(),
                                   RiskConfig(), StrategyConfig())
+    evaluator.source_verified = True
     result = evaluator.evaluate(ind, object())
     assert result.selected is not None
     assert result.selected_config is not None
     assert result.strategies[result.selected]["test_diagnostic_only"]["total_return_pct"] == -5.0
-    assert len(result.strategies) == len(evaluator.CANDIDATE_RECIPES) + 1
+    assert len(result.strategies) == len(evaluator.CANDIDATE_RECIPES) + 2
+    protocol = result.strategies["evaluation_protocol"]
+    assert (protocol["train_fraction"], protocol["selection_fraction"],
+            protocol["validation_fraction"], protocol["final_test_fraction"]) == (.5, .2, .15, .15)
+    evaluator.source_verified = False
+    unverified = evaluator.evaluate(ind, object())
+    assert unverified.selected is None
+    assert unverified.reason == "unverified_data_source"
 
 
 @pytest.mark.parametrize("symbol,min_lot,contract,tick_value", [

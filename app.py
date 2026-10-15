@@ -27,10 +27,12 @@ from config import (LIVE_CONFIRM_PHRASE, LIVE_ENV_VALUE, LIVE_ENV_VAR, MARKET_DA
 from src.ai_model import AIModel
 from src.autonomous_agent import AutonomousAgent
 from src.backtester import Backtester, format_metrics
-from src.broker_demo import BaseBroker, MT5Broker, PaperBroker
+from src.broker_demo import MAGIC_NUMBER, BaseBroker, MT5Broker, MT5DemoBroker, PaperBroker
 from src.indicators import add_all_indicators
 from src.logger import replace_trades, setup_logging
-from src.market_data import fetch_mt5, get_market_data, load_csv, save_csv
+from src.market_data import (AUTONOMOUS_TIMEFRAMES, _import_mt5, connect_mt5,
+                             download_mt5_history, fetch_mt5, get_market_data,
+                             load_csv, parse_utc_datetime, save_csv, save_mt5_history)
 from src.risk_manager import RiskManager
 from src.strategy_evaluator import StrategyEvaluator
 from src.strategy import build_signals, side_name
@@ -77,6 +79,38 @@ def cmd_download(args, settings: Settings) -> None:
     df = get_market_data(settings, args.source)
     save_csv(df, MARKET_DATA_CSV)
     print(f"OK: {len(df)} velas | {df.index[0]} -> {df.index[-1]}")
+
+
+def cmd_download_range(args, settings: Settings) -> None:
+    start, end = parse_utc_datetime(args.date_from), parse_utc_datetime(args.date_to)
+    symbol = args.symbol.strip()
+    if not symbol:
+        raise ValueError("Indica el nombre exacto de símbolo MT5.")
+    mt5 = _import_mt5()
+    if mt5 is None:
+        raise RuntimeError("MetaTrader5 no está instalado en este Python de Windows.")
+    terminal = mt5.terminal_info()
+    already_connected = terminal is not None and getattr(terminal, "connected", True)
+    if not already_connected:
+        connect_mt5(mt5, settings.mt5)  # Reusa sesión abierta; nunca ejecuta login.
+    try:
+        frame, manifest = download_mt5_history(
+            mt5, symbol, args.timeframe, start, end, chunk_days=args.chunk_days
+        )
+        if args.output:
+            output = Path(args.output)
+        else:
+            token = f"{symbol}_{args.timeframe}_{start:%Y%m%d}_{end:%Y%m%d}.csv"
+            output = Path("data") / "history" / token
+        csv_path, manifest_path = save_mt5_history(frame, manifest, output)
+        print(f"Descargadas {len(frame)} velas de {symbol} {args.timeframe}.")
+        print(f"UTC: {frame['time'].iloc[0].isoformat()} -> {frame['time'].iloc[-1].isoformat()}")
+        print(f"Huecos detectados: {len(manifest['gaps_over_1_5_bars'])}; chunks vacíos: {manifest['empty_chunks']}.")
+        print(f"Integridad total certificada: no; revisar límites Max bars y manifest: {manifest_path}")
+        print(f"CSV: {csv_path}")
+    finally:
+        if not already_connected:
+            mt5.shutdown()
 
 
 def cmd_train(args, settings: Settings) -> None:
@@ -207,6 +241,8 @@ def try_open_trade(broker: BaseBroker, risk: RiskManager, settings: Settings, no
 
 def _expire_old_positions(broker: BaseBroker, held: dict, max_bars: int, now: pd.Timestamp, price: float) -> None:
     for pos in broker.open_positions():
+        if getattr(pos, "magic", 0) != MAGIC_NUMBER:
+            continue  # Manual/foreign positions are never managed by this bot.
         held[pos.ticket] = held.get(pos.ticket, 0) + 1
         if held[pos.ticket] >= max_bars:
             broker.close_position(pos, price=price, time=now, reason="TIME")
@@ -251,7 +287,7 @@ def run_mt5_live(settings: Settings, model: AIModel | None, poll_seconds: int, l
                     settings.risk.risk_per_trade * 100, settings.risk.max_daily_loss * 100,
                     settings.risk.max_drawdown * 100, settings.risk.max_lots)
 
-    broker = MT5Broker(settings.mt5, settings.spec, allow_live=live)
+    broker = MT5Broker(settings.mt5, settings.spec, allow_live=True) if live else MT5DemoBroker(settings.mt5, settings.spec)
     broker.connect()  # PermissionError si la cuenta es real y no pasaste --live
     if live and not broker.is_live:
         log.warning("Pediste --live pero la cuenta conectada es DEMO.")
@@ -306,6 +342,21 @@ def cmd_demo(args, settings: Settings) -> None:
         run_paper_replay(settings, ind, signals, args.replay_bars)
 
 
+def cmd_analyze(args, settings: Settings) -> None:
+    """Real-time MT5 analysis; broker instance rejects any order method call."""
+    args.execute = False
+    args.live = False
+    cmd_autonomous(args, settings)
+
+
+def cmd_paper(args, settings: Settings) -> None:
+    """Historical paper replay from the validated project CSV, without MT5."""
+    from types import SimpleNamespace
+    if getattr(args, "source", "csv") != "csv":
+        raise ValueError("El modo paper actual utiliza el CSV local validado (--source csv).")
+    cmd_demo(SimpleNamespace(live=False, broker="paper", replay_bars=args.replay_bars), settings)
+
+
 def cmd_autonomous(args, settings: Settings) -> None:
     if args.timeframe not in ("M15", "M30", "H1", "H4"):
         raise ValueError("El agente autónomo requiere timeframe M15 o superior.")
@@ -316,13 +367,20 @@ def cmd_autonomous(args, settings: Settings) -> None:
         settings.risk = settings.live_risk
     if not args.execute:
         log.warning("Ciclo autónomo en SOLO ANÁLISIS: no se enviarán órdenes.")
-    broker = MT5Broker(settings.mt5, settings.spec, allow_live=bool(args.live))
+    if args.execute and not args.live:
+        broker = MT5DemoBroker(settings.mt5, settings.spec)
+    else:
+        broker = MT5Broker(settings.mt5, settings.spec, allow_live=bool(args.live),
+                            allow_read_only_real=not args.execute, read_only=not args.execute)
     broker.connect()
     try:
         settings.market.symbol = broker.spec.symbol
         if args.live and not broker.is_live:
             raise RuntimeError("--live fue solicitado, pero la sesión MT5 abierta no es REAL.")
         evaluator = StrategyEvaluator(broker.spec, settings.backtest, settings.risk, settings.strategy)
+        # This evaluator is fed only by the connected MT5 terminal and the
+        # exact symbol/specification resolved by the broker connection.
+        evaluator.source_verified = True
         risk = RiskManager(settings.risk, broker.equity())
         agent = AutonomousAgent(
             settings, broker, evaluator,
@@ -355,12 +413,31 @@ def build_parser() -> argparse.ArgumentParser:
     common(d, "auto")
     d.add_argument("--bars", type=int, help="Cantidad de velas")
 
+    hist = sub.add_parser("download-range", help="Descarga histórico MT5 en UTC sin sobrescribir archivos")
+    hist.add_argument("--symbol", required=True, help="Nombre exacto publicado por MT5; no se sustituye por alias")
+    hist.add_argument("--timeframe", required=True, choices=AUTONOMOUS_TIMEFRAMES)
+    hist.add_argument("--from", dest="date_from", required=True, help="ISO-8601 con zona, p.ej. 2025-01-01T00:00:00Z")
+    hist.add_argument("--to", dest="date_to", required=True, help="ISO-8601 con zona, p.ej. 2026-01-01T00:00:00Z")
+    hist.add_argument("--chunk-days", type=int, default=30)
+    hist.add_argument("--output", help="Ruta CSV nueva; se rechaza si ya existe")
+
     t = sub.add_parser("train", help="Entrena el modelo de IA")
     common(t)
     t.add_argument("--all-data", action="store_true", help="Entrenar con todo el histórico (sin reservar test)")
 
     b = sub.add_parser("backtest", help="Backtest fuera de muestra")
     common(b)
+
+    paper = sub.add_parser("paper", help="Replay histórico en PaperBroker; no conecta ni envía órdenes MT5")
+    common(paper, "csv")
+    paper.set_defaults(mode="rules")
+    paper.add_argument("--replay-bars", type=int, default=500)
+
+    analyze = sub.add_parser("analyze", help="Ciclo autónomo MT5 en solo lectura; nunca envía órdenes")
+    analyze.add_argument("--symbol", help="Nombre exacto de símbolo MT5")
+    analyze.add_argument("--timeframe", default="M15", choices=list(AUTONOMOUS_TIMEFRAMES))
+    analyze.add_argument("--mode", default="hybrid", choices=["rules", "ai", "hybrid"])
+    analyze.add_argument("--cycle-minutes", type=int, choices=[10, 15], default=15)
 
     m = sub.add_parser("demo", help="Trading con paper, MT5 demo o MT5 real (--live)")
     common(m)
@@ -384,7 +461,9 @@ def main(argv: list[str] | None = None) -> int:
     setup_logging(args.log_level)
     settings = apply_cli_overrides(get_settings(), args)
 
-    handlers = {"download": cmd_download, "train": cmd_train, "backtest": cmd_backtest,
+    handlers = {"download": cmd_download, "download-range": cmd_download_range,
+                "train": cmd_train, "backtest": cmd_backtest,
+                "paper": cmd_paper, "analyze": cmd_analyze,
                 "demo": cmd_demo, "autonomous": cmd_autonomous}
     try:
         handlers[args.command](args, settings)
