@@ -65,6 +65,46 @@ def test_nonzero_volume_origin_and_irregular_step_stay_valid():
     assert (lots - spec.min_lot) / spec.lot_step == 4
 
 
+def test_mt5_tick_spec_multiple_sl_distances_never_exceeds_money_risk():
+    """Representative MT5 symbol_info tick values; pure deterministic fixture."""
+    from config import SymbolSpec
+
+    spec = SymbolSpec(
+        "EURUSDmicro", 0.0001, contract_size=1_000,
+        min_lot=0.1, max_lot=10.0, lot_step=0.1,
+        tick_size=0.00001, tick_value_profit=0.10, tick_value_loss=0.10,
+        point=0.00001, digits=5, currency_profit="USD",
+    )
+    equity, risk_fraction = 1_000.0, 0.01
+    budget = equity * risk_fraction
+    rm = RiskManager(RiskConfig(risk_per_trade=risk_fraction, max_lots=10.0), equity)
+
+    # $0.10/tick * 10 ticks/pip = $1/pip/lot for this illustrative spec.
+    for stop_pips, expected_lots in ((5, 2.0), (10, 1.0), (20, 0.5)):
+        lots = rm.position_size(equity, stop_pips, spec, 1.10)
+        loss_at_sl = stop_pips * spec.pip_value_per_lot(1.10) * lots
+        assert lots == expected_lots
+        assert lots >= spec.min_lot
+        assert abs((lots - spec.min_lot) / spec.lot_step - round(
+            (lots - spec.min_lot) / spec.lot_step
+        )) < 1e-9
+        assert loss_at_sl <= budget + 1e-12
+
+
+def test_tick_spec_minimum_volume_is_rejected_when_stop_risk_exceeds_budget():
+    from config import SymbolSpec
+
+    spec = SymbolSpec(
+        "EURUSDmicro", 0.0001, contract_size=1_000,
+        min_lot=0.1, max_lot=10.0, lot_step=0.1,
+        tick_size=0.00001, tick_value_profit=0.10, tick_value_loss=0.10,
+        currency_profit="USD",
+    )
+    rm = RiskManager(RiskConfig(risk_per_trade=0.0025), 100.0)
+    # 50 pips x $1/pip/lot x 0.1 minimum lot = $5, over the $0.25 budget.
+    assert rm.position_size(100.0, 50.0, spec, 1.10) == 0.0
+
+
 def test_position_size_invalid_inputs():
     rm = RiskManager(RiskConfig(), 10_000)
     assert rm.position_size(10_000, 0, EURUSD, 1.10) == 0.0

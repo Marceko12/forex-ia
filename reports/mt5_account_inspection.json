@@ -5,5 +5,5 @@
   "login_attempted": false,
   "symbols": {},
   "reason": "initialize_failed",
-  "error_code": -10005
+  "error_code": -10003
 }

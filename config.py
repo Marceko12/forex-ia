@@ -73,14 +73,20 @@ class SymbolSpec:
     currency_profit: str = ""
     currency_margin: str = ""
 
-    def pip_value_per_lot(self, price: float) -> float:
-        """Valor conservador de un pip por lote, en moneda de la cuenta."""
+    def pip_value_per_lot(self, price: float, *, is_profit: bool | None = None) -> float:
+        """Valor de un pip por lote, en moneda de la cuenta.
+
+        `is_profit=None` conserva el máximo conservador (apropiado para sizing
+        de riesgo). El PnL histórico puede indicar si el movimiento fue
+        favorable o adverso para usar el tick value correspondiente de MT5.
+        """
         if self.tick_size > 0:
-            values = [
-                self.tick_value_profit,
-                self.tick_value_loss,
-            ]
-            tick_value = max(values)
+            if is_profit is not None and bool(is_profit):
+                tick_value = self.tick_value_profit or self.tick_value_loss
+            elif is_profit is not None:
+                tick_value = self.tick_value_loss or self.tick_value_profit
+            else:
+                tick_value = max(self.tick_value_profit, self.tick_value_loss)
             if tick_value > 0:
                 return tick_value * self.pip_size / self.tick_size
 

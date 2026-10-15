@@ -5,7 +5,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.market_data import download_mt5_history, parse_utc_datetime, save_mt5_history, validate_mt5_rates
+from src.market_data import (download_mt5_history, fetch_mt5, load_csv, parse_utc_datetime,
+                             save_mt5_history, validate_mt5_rates)
 
 
 def _epoch(value):
@@ -117,3 +118,41 @@ def test_history_save_preserves_raw_data_and_never_overwrites(tmp_path):
     assert pd.read_json(manifest_path, typ="series")["sha256"]
     with pytest.raises(FileExistsError):
         save_mt5_history(frame, {}, csv_path)
+
+
+def test_csv_loader_preserves_mt5_spread_points_for_backtester(tmp_path):
+    data = pd.DataFrame({
+        "time": ["2026-01-01T00:00:00Z", "2026-01-01T00:15:00Z"],
+        "open": [1.1, 1.1], "high": [1.101, 1.101],
+        "low": [1.099, 1.099], "close": [1.1, 1.1],
+        "tick_volume": [10, 11], "real_volume": [0, 0], "volume": [10, 11],
+        "spread": [12, 18],
+    })
+    path = tmp_path / "raw_rates.csv"
+    data.to_csv(path, index=False)
+    loaded = load_csv(path)
+    assert loaded["spread"].tolist() == [12, 18]
+
+
+def test_positional_mt5_fetch_preserves_bar_spread_points(monkeypatch):
+    from config import MT5Config, MarketConfig, Settings
+    import src.market_data as market_data
+
+    class ReadOnlyFake(FakeHistoryMT5):
+        TIMEFRAME_M15 = 15
+
+        def terminal_info(self):
+            return SimpleNamespace(connected=True)
+
+        def copy_rates_from_pos(self, symbol, timeframe, start_pos, count):
+            return [
+                {**_rate("2026-01-01T00:00:00Z"), "spread": 12},
+                {**_rate("2026-01-01T00:15:00Z"), "spread": 18},
+            ]
+
+    fake = ReadOnlyFake()
+    monkeypatch.setattr(market_data, "_import_mt5", lambda: fake)
+    settings = Settings(mt5=MT5Config(), market=MarketConfig(
+        symbol="EURUSDmicro", timeframe="M15"))
+    result = fetch_mt5(settings, n_bars=2)
+    assert result["spread"].tolist() == [12, 18]

@@ -71,7 +71,18 @@ class Backtester:
         n = len(df)
         if bt.spread_pips < 0 or bt.slippage_pips < 0 or bt.commission_per_lot < 0:
             raise ValueError("Spread, slippage y comisión no pueden ser negativos.")
-        half_cost = (bt.spread_pips / 2.0 + bt.slippage_pips) * spec.pip_size
+        spread_points = None
+        if "spread" in df.columns:
+            spread_points = pd.to_numeric(df["spread"], errors="coerce").to_numpy(float)
+            if not np.isfinite(spread_points).all() or (spread_points < 0).any():
+                raise ValueError("La columna spread debe contener puntos MT5 finitos y no negativos.")
+        if spread_points is not None and spec.point > 0:
+            spread_pips = spread_points * spec.point / spec.pip_size
+            spread_model = "per_bar_mt5_points"
+        else:
+            spread_pips = np.full(n, bt.spread_pips, dtype=float)
+            spread_model = "configured_fixed_pips"
+        half_cost = (spread_pips / 2.0 + bt.slippage_pips) * spec.pip_size
 
         balance = bt.initial_balance
         risk = RiskManager(self.risk_cfg, balance)
@@ -83,20 +94,21 @@ class Backtester:
 
         def pnl_money(side: int, entry: float, exit_: float, lots: float) -> float:
             pips = side * (exit_ - entry) / spec.pip_size
-            return pips * spec.pip_value_per_lot(exit_) * lots
+            pip_value = spec.pip_value_per_lot(exit_, is_profit=pips >= 0)
+            return pips * pip_value * lots
 
-        def mark_equity(mark_price: float) -> float:
+        def mark_equity(mark_price: float, exit_half_cost: float) -> float:
             if pos is None:
                 return balance
             side = pos["side"]
-            close_fill = mark_price - side * half_cost
+            close_fill = mark_price - side * exit_half_cost
             return balance + pnl_money(side, pos["entry"], close_fill, pos["lots"]) - bt.commission_per_lot * pos["lots"]
 
         for i in range(n):
             now = times[i]
             # Los controles de riesgo ven el equity liquidable de la vela anterior,
             # incluyendo spread, slippage y la comisión estimada de cierre.
-            equity_at_open = mark_equity(c[i - 1]) if i > 0 else balance
+            equity_at_open = mark_equity(c[i - 1], half_cost[i - 1]) if i > 0 else balance
             risk.update(now, equity_at_open)
 
             # 1) Entrada: señal de la vela anterior, ejecución a la apertura actual
@@ -107,13 +119,13 @@ class Backtester:
                         side = int(sig[i - 1])
                         sl_dist = st.sl_atr_mult * atr[i - 1]
                         pip_value = spec.pip_value_per_lot(o[i])
-                        estimated_cost = pip_value * (bt.spread_pips + 2 * bt.slippage_pips) + bt.commission_per_lot
+                        estimated_cost = pip_value * (spread_pips[i] + 2 * bt.slippage_pips) + bt.commission_per_lot
                         lots = risk.position_size(equity_at_open, sl_dist / spec.pip_size,
                                                   spec, o[i], cost_per_lot=estimated_cost)
                         if lots > 0 and sl_dist > 0:
                             pos = {
                                 "side": side, "lots": lots, "i": i, "time": now,
-                                "mid_entry": o[i], "entry": o[i] + side * half_cost,
+                                "mid_entry": o[i], "entry": o[i] + side * half_cost[i],
                                 "sl": o[i] - side * sl_dist,
                                 "tp": o[i] + side * st.rr_ratio * sl_dist,
                             }
@@ -157,15 +169,15 @@ class Backtester:
                 # MAE intravela conservador: cuando no se ejecutó el SL,
                 # suponemos que el extremo adverso ocurrió antes del cierre.
                 if exit_px is not None and reason == "SL":
-                    adverse_exit = exit_px - side * half_cost
+                    adverse_exit = exit_px - side * half_cost[i]
                     adverse_pnl = pnl_money(side, pos["entry"], adverse_exit, pos["lots"]) - bt.commission_per_lot * pos["lots"]
                     bar_worst_equity = balance + adverse_pnl
                 else:
                     adverse_price = l[i] if side == 1 else h[i]
-                    bar_worst_equity = mark_equity(adverse_price)
+                    bar_worst_equity = mark_equity(adverse_price, half_cost[i])
 
                 if exit_px is not None:
-                    fill = exit_px - side * half_cost
+                    fill = exit_px - side * half_cost[i]
                     pnl = pnl_money(side, pos["entry"], fill, pos["lots"]) - bt.commission_per_lot * pos["lots"]
                     gross_pnl = pnl_money(side, pos["mid_entry"], exit_px, pos["lots"])
                     costs = gross_pnl - pnl
@@ -183,7 +195,7 @@ class Backtester:
                     pos, last_exit_i = None, i
 
             # 3) Curva de equity (mark-to-market)
-            equity_curve[i] = mark_equity(c[i])
+            equity_curve[i] = mark_equity(c[i], half_cost[i])
             drawdown_curve[i] = min(equity_curve[i], bar_worst_equity) if pos is not None or bar_worst_equity is not None else equity_curve[i]
             risk.update(now, drawdown_curve[i])
             risk.update(now, equity_curve[i])
@@ -193,6 +205,7 @@ class Backtester:
         drawdown_s = pd.Series(drawdown_curve, index=times, name="intrabar_adverse_equity")
         metrics = compute_metrics(trades_df, equity_s, bt.initial_balance, drawdown_equity=drawdown_s)
         metrics.update({
+            "spread_model": spread_model,
             "buy_signals": int((sig == 1).sum()),
             "sell_signals": int((sig == -1).sum()),
             "opened_trades": int(len(trades_df)),

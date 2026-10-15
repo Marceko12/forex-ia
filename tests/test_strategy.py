@@ -194,7 +194,7 @@ def test_stop_loss_hits_first_when_both_touched():
     assert res.trades.iloc[0]["pnl"] < 0
 
 
-def _one_bar_exit_case(side: int, outcome: str, gap: bool = False):
+def _one_bar_exit_case(side: int, outcome: str, gap: bool = False, spec=None, spreads=None):
     """Small deterministic OHLC path; costs are enabled in every case."""
     from config import BacktestConfig, RiskConfig, StrategyConfig, SymbolSpec
 
@@ -205,6 +205,8 @@ def _one_bar_exit_case(side: int, outcome: str, gap: bool = False):
         "low": [entry - .0002] * 4, "close": [entry] * 4,
         "atr": [.001] * 4,
     }, index=idx)
+    if spreads is not None:
+        frame["spread"] = spreads
     sl_dist, tp_dist = .0015, .003
     if outcome == "TP":
         if gap:
@@ -223,7 +225,7 @@ def _one_bar_exit_case(side: int, outcome: str, gap: bool = False):
             frame.iloc[1, frame.columns.get_loc("high")] = entry + sl_dist + .0001
     signals = pd.Series([side, 0, 0, 0], index=idx)
     bt = Backtester(
-        SymbolSpec("EURUSD", .0001),
+        spec or SymbolSpec("EURUSD", .0001),
         BacktestConfig(initial_balance=10_000, spread_pips=1, commission_per_lot=7,
                        slippage_pips=.2),
         RiskConfig(risk_per_trade=.01),
@@ -271,3 +273,42 @@ def test_backtest_reports_signal_and_closed_trade_counts_separately():
     assert result.metrics["closed_winning_trades"] == 1
     assert result.metrics["closed_losing_trades"] == 0
     assert result.metrics["closed_breakeven_trades"] == 0
+
+
+def test_mt5_profit_and_loss_tick_values_are_used_by_pnl_and_risk_sizing():
+    from config import SymbolSpec
+
+    spec = SymbolSpec(
+        "EURUSD", .0001, min_lot=.01, max_lot=100, lot_step=.01,
+        tick_size=.00001, tick_value_profit=.10, tick_value_loss=.20,
+    )
+    assert spec.pip_value_per_lot(1.1, is_profit=True) == 1.0
+    assert spec.pip_value_per_lot(1.1, is_profit=False) == 2.0
+    assert spec.pip_value_per_lot(1.1) == 2.0  # sizing remains conservative
+
+    winner = _one_bar_exit_case(1, "TP", spec=spec).trades.iloc[0]
+    loser = _one_bar_exit_case(1, "SL", spec=spec).trades.iloc[0]
+    gross_profit_pips = (1.103 - 1.1) / .0001
+    stopped_pips_including_execution_costs = (
+        loser["entry_price"] - loser["exit_price"]
+    ) / .0001
+    assert np.isclose(winner["gross_pnl"], gross_profit_pips * 1.0 * winner["lots"])
+    assert np.isclose(
+        loser["pnl"],
+        -stopped_pips_including_execution_costs * 2.0 * loser["lots"]
+        - 7.0 * loser["lots"],
+        atol=.01,
+    )
+
+
+def test_backtest_uses_mt5_spread_points_from_entry_and_exit_bars():
+    from config import SymbolSpec
+
+    spec = SymbolSpec("EURUSD", .0001, point=.00001, tick_size=.00001,
+                      tick_value_profit=1.0, tick_value_loss=1.0)
+    result = _one_bar_exit_case(1, "TP", gap=True, spec=spec, spreads=[0, 2, 4, 0])
+    trade = result.trades.iloc[0]
+    # Entry bar spread .2 pip and exit bar spread .4 pip are each halved by
+    # executable side prices; add .2 pip adverse slippage on each fill and $7 commission.
+    assert trade["costs"] == round(14.0 * trade["lots"], 2)
+    assert result.metrics["spread_model"] == "per_bar_mt5_points"

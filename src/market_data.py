@@ -138,7 +138,10 @@ def fetch_mt5(settings: Settings, n_bars: int | None = None, start_pos: int = 1)
     df = pd.DataFrame(rates)
     df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
     df = df.rename(columns={"tick_volume": "volume"}).set_index("time")
-    df = df[OHLCV].sort_index()
+    columns = [*OHLCV]
+    if "spread" in df.columns:
+        columns.append("spread")  # MT5 points; Backtester converts with SymbolSpec.point.
+    df = df[columns].sort_index()
     log.info("MT5: %d velas de %s %s descargadas", len(df), symbol, tf_name)
     return df
 
@@ -312,12 +315,18 @@ def load_csv(path: Path = MARKET_DATA_CSV) -> pd.DataFrame:
         raise ValueError(f"Faltan columnas en {path}: {missing}")
     if not df.index.is_monotonic_increasing or df.index.has_duplicates:
         raise ValueError(f"El CSV debe estar ordenado cronológicamente y sin timestamps duplicados: {path}")
-    df = df[OHLCV].apply(pd.to_numeric, errors="coerce")
+    kept_columns = [*OHLCV]
+    # The historical MT5 collector stores `spread` in points. Keep it for
+    # cost-aware backtests; do not reinterpret it as pips here.
+    if "spread" in df.columns:
+        kept_columns.append("spread")
+    df = df[kept_columns].apply(pd.to_numeric, errors="coerce")
     if not np.isfinite(df.to_numpy(dtype=float)).all():
-        raise ValueError(f"El CSV contiene datos OHLCV ausentes o no numéricos: {path}")
+        raise ValueError(f"El CSV contiene datos OHLCV/spread ausentes o no numéricos: {path}")
     prices = df[["open", "high", "low", "close"]]
-    if (prices <= 0).any().any() or (df["volume"] < 0).any():
-        raise ValueError(f"El CSV contiene precios no positivos o volumen negativo: {path}")
+    if (prices <= 0).any().any() or (df["volume"] < 0).any() or (
+            "spread" in df and (df["spread"] < 0).any()):
+        raise ValueError(f"El CSV contiene precios no positivos, volumen o spread negativo: {path}")
     if ((df["high"] < prices[["open", "close"]].max(axis=1))
             | (df["low"] > prices[["open", "close"]].min(axis=1))
             | (df["high"] < df["low"])).any():

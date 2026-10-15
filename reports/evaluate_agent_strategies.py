@@ -61,8 +61,9 @@ def main() -> int:
     specs_ok = bool(manifest_matches and all(
         float(symbol_fields.get(name) or 0) > 0
         for name in ("volume_min", "volume_max", "volume_step", "trade_tick_size",
-                     "trade_tick_value_loss", "trade_contract_size")
-    ))
+                     "trade_tick_value_profit", "trade_tick_value_loss", "trade_contract_size",
+                     "point", "digits")
+    ) and bool(symbol_fields.get("currency_profit")))
     settings = get_settings()
     settings.market.symbol = symbol
     ind = add_all_indicators(df, settings.indicators)
@@ -128,7 +129,8 @@ def main() -> int:
                       "test_use": "diagnostic only, only calculated after prior gates pass"},
         "candidate_metrics": result.strategies,
         "limits": ["CSV provenance is locally supported but not authenticated.",
-                   "EURUSDmicro contract/volume and all costs are assumptions, not queried MT5 specifications.",
+                   "If the sidecar manifest lacks pip/point, profit/loss tick values, contract/volume, digits, or profit currency, symbol specs remain unverified.",
+                   "All costs are assumptions; the CSV's MT5 spread is used only when the manifest supplies a valid point size.",
                    "No order or MT5 connection is performed by this report script.",
                    "A passing historical filter would not establish a durable edge or guarantee outcomes."],
     }
