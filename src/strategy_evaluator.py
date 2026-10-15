@@ -49,6 +49,9 @@ class StrategyEvaluator:
         self.min_pf = min_profit_factor
         self.max_dd = max_drawdown_pct
         self.source_verified = False
+        # Data provenance/specifications do not establish transaction-cost
+        # schedules. Without explicit cost verification, evaluation is diagnostic.
+        self.costs_verified = False
 
     def evaluate(self, ind: pd.DataFrame, model_config) -> Evaluation:
         n = len(ind)
@@ -157,7 +160,7 @@ class StrategyEvaluator:
                 metrics[provisional]["test_diagnostic_only"] = Backtester(
                     self.spec, self.backtest, self.risk, candidate_configs[provisional]
                 ).run(test, signals[provisional].reindex(test.index)).metrics
-        if provisional and validation_passes and self.source_verified:
+        if provisional and validation_passes and self.source_verified and self.costs_verified:
             selected = provisional
         if not provisional:
             reason = "no_candidate_passed_selection"
@@ -165,12 +168,15 @@ class StrategyEvaluator:
             reason = "validation_gate_failed"
         elif not self.source_verified:
             reason = "unverified_data_source"
+        elif not self.costs_verified:
+            reason = "unverified_transaction_costs"
         else:
             reason = "selection_and_validation_passed"
         metrics["evaluation_protocol"] = {
             "train_fraction": 0.50, "selection_fraction": 0.20,
             "validation_fraction": 0.15, "final_test_fraction": 0.15,
             "source_verified": self.source_verified,
+            "costs_verified": self.costs_verified,
             "provisional_recipe": provisional,
             "test_is_diagnostic_only": True,
         }

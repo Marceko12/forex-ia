@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import sys
 import time
 from pathlib import Path
@@ -204,8 +205,54 @@ def try_open_trade(broker: BaseBroker, risk: RiskManager, settings: Settings, no
         price = quote
     sl = price - signal * sl_dist
     tp = price + signal * settings.strategy.rr_ratio * sl_dist
+    requested_lots = settings.requested_volume_by_symbol.get(spec.symbol)
     loss_fn = getattr(broker, "loss_per_lot", None)
-    if callable(loss_fn):
+    if requested_lots is not None:
+        valid, why = risk.validate_requested_volume(float(requested_lots), spec)
+        if not valid:
+            log.warning("Entrada rechazada para %s: %s.", spec.symbol, why)
+            return False
+        if callable(loss_fn):
+            loss_per_lot = loss_fn(signal, price, sl)
+            if loss_per_lot is None:
+                log.warning("Entrada rechazada: MT5 no pudo calcular el riesgo monetario al SL.")
+                return False
+        else:
+            try:
+                loss_per_lot = (sl_dist / spec.pip_size) * spec.pip_value_per_lot(price)
+            except (ValueError, ZeroDivisionError):
+                log.warning("Entrada rechazada: no se puede estimar el riesgo por lote.")
+                return False
+        commission = float(settings.backtest.commission_per_lot)
+        if not math.isfinite(commission) or commission < 0:
+            log.warning("Entrada rechazada: comisión estimada inválida.")
+            return False
+        estimated_loss = (float(loss_per_lot) + commission) * float(requested_lots)
+        risk_budget = broker.equity() * risk.cfg.risk_per_trade
+        if not math.isfinite(estimated_loss) or estimated_loss > risk_budget:
+            log.warning("Entrada rechazada: volumen %.2f; pérdida estimada USD %.4f "
+                        "supera presupuesto USD %.4f (SL %.5f, comisión asumida USD %.2f/lote).",
+                        requested_lots, estimated_loss, risk_budget, sl, commission)
+            return False
+        lots = float(requested_lots)
+        margin_fn = getattr(broker, "margin_for", None)
+        mt5 = getattr(broker, "mt5", None)
+        if callable(margin_fn) and mt5 is not None:
+            required_margin = margin_fn(signal, lots, price)
+            account = mt5.account_info()
+            free_margin = getattr(account, "margin_free", None) if account is not None else None
+            if (required_margin is None or free_margin is None
+                    or not math.isfinite(float(required_margin))
+                    or not math.isfinite(float(free_margin))):
+                log.warning("Entrada rechazada: volumen %.2f; pérdida estimada USD %.4f; "
+                            "margen disponible no verificable.", lots, estimated_loss)
+                return False
+            if float(required_margin) > float(free_margin):
+                log.warning("Entrada rechazada: volumen %.2f; pérdida estimada USD %.4f; "
+                            "margen requerido USD %.4f supera margen libre USD %.4f.",
+                            lots, estimated_loss, float(required_margin), float(free_margin))
+                return False
+    elif callable(loss_fn):
         loss_per_lot = loss_fn(signal, price, sl)
         if loss_per_lot is None:
             log.warning("Entrada rechazada: MT5 no pudo calcular el riesgo monetario al SL.")

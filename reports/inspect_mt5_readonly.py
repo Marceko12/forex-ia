@@ -133,6 +133,50 @@ def main() -> int:
                             closed_position_ids.discard(None)
                             closed_deals = [d for d in symbol_deals
                                             if getattr(d, "position_id", None) in closed_position_ids]
+                            by_position: dict[int, list] = {}
+                            for deal in closed_deals:
+                                by_position.setdefault(int(deal.position_id), []).append(deal)
+                            position_summaries = []
+                            for ordinal, position_deals in enumerate(by_position.values(), start=1):
+                                entries = [d for d in position_deals
+                                           if getattr(d, "entry", None) == entry_in]
+                                exits = [d for d in position_deals
+                                         if getattr(d, "entry", None) in
+                                         (entry_out, entry_inout, entry_out_by)]
+                                entry_volume = sum(float(getattr(d, "volume", 0.0)) for d in entries)
+                                exit_volume = sum(float(getattr(d, "volume", 0.0)) for d in exits)
+                                buy_type = getattr(mt5, "DEAL_TYPE_BUY", 0)
+                                side = (1 if entries and getattr(entries[0], "type", None) == buy_type
+                                        else -1 if entries else 0)
+                                entry_vwap = (sum(float(d.price) * float(d.volume) for d in entries) / entry_volume
+                                              if entry_volume else None)
+                                exit_vwap = (sum(float(d.price) * float(d.volume) for d in exits) / exit_volume
+                                             if exit_volume else None)
+                                matched_volume = min(entry_volume, exit_volume)
+                                price_pnl = (side * (exit_vwap - entry_vwap) * matched_volume
+                                             * float(info.trade_contract_size)
+                                             if side and entry_vwap is not None and exit_vwap is not None else None)
+                                mt5_profit = sum(float(getattr(d, "profit", 0.0)) for d in position_deals)
+                                commission = sum(float(getattr(d, "commission", 0.0)) for d in position_deals)
+                                swap = sum(float(getattr(d, "swap", 0.0)) for d in position_deals)
+                                fee = sum(float(getattr(d, "fee", 0.0)) for d in position_deals)
+                                position_summaries.append({
+                                    "position_ordinal": ordinal,
+                                    "deal_count": len(position_deals),
+                                    "entry_volume": round(entry_volume, 8),
+                                    "exit_volume": round(exit_volume, 8),
+                                    "entry_vwap": entry_vwap,
+                                    "exit_vwap": exit_vwap,
+                                    "price_pnl_estimate": round(price_pnl, 8) if price_pnl is not None else None,
+                                    "mt5_profit": round(mt5_profit, 8),
+                                    "commission": round(commission, 8),
+                                    "swap": round(swap, 8),
+                                    "fee": round(fee, 8),
+                                    "mt5_net": round(mt5_profit + commission + swap + fee, 8),
+                                    "price_pnl_delta_vs_mt5_profit": (
+                                        round(price_pnl - mt5_profit, 8) if price_pnl is not None else None
+                                    ),
+                                })
                             closed_entry_commission = sum(float(getattr(d, "commission", 0.0))
                                                           for d in closed_deals
                                                           if getattr(d, "entry", None) == entry_in)
@@ -161,6 +205,7 @@ def main() -> int:
                                                         for d in closed_deals), 8),
                                 "realized_profit_total": round(sum(float(getattr(d, "profit", 0.0))
                                                                     for d in closed_deals), 8),
+                                "positions_anonymized": position_summaries,
                                 "note": "Historical realized deals only; may not establish current fee schedule.",
                             }
                     report["symbols"][name] = row

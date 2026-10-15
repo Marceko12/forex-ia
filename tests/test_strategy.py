@@ -312,3 +312,39 @@ def test_backtest_uses_mt5_spread_points_from_entry_and_exit_bars():
     # executable side prices; add .2 pip adverse slippage on each fill and $7 commission.
     assert trade["costs"] == round(14.0 * trade["lots"], 2)
     assert result.metrics["spread_model"] == "per_bar_mt5_points"
+
+
+def test_complete_synthetic_round_trip_applies_one_full_spread_not_twice():
+    """Mid-price candles: 2 pip gross TP less one 1-pip round-trip spread."""
+    from config import BacktestConfig, RiskConfig, StrategyConfig, SymbolSpec
+
+    idx = pd.date_range("2025-01-01", periods=4, freq="15min", tz="UTC")
+    mid = 1.1000
+    df = pd.DataFrame({
+        "open": [mid] * 4,
+        "high": [mid + .0002, mid + .0002, mid + .0003, mid + .0002],
+        "low": [mid - .00005] * 4,
+        "close": [mid] * 4,
+        "atr": [.001] * 4,
+    }, index=idx)
+    spec = SymbolSpec(
+        "EURUSDmicro", .0001, contract_size=1000, min_lot=.01,
+        max_lot=5, lot_step=.01, tick_size=.00001,
+        tick_value_profit=.01, tick_value_loss=.01,
+        currency_profit="USD",
+    )
+    cfg = BacktestConfig(initial_balance=100, spread_pips=1,
+                         commission_per_lot=0, slippage_pips=0)
+    risk = RiskConfig(risk_per_trade=.01, max_lots=5)
+    strategy = StrategyConfig(sl_atr_mult=.1, rr_ratio=2, max_bars_in_trade=10)
+    signals = pd.Series([1, 0, 0, 0], index=idx)
+
+    trade = Backtester(spec, cfg, risk, strategy).run(df, signals).trades.iloc[0]
+
+    assert trade["lots"] == 5.0
+    assert trade["exit_reason"] == "TP"
+    # 2 pips x $0.10/pip/lot x 5 lots = $1 gross.
+    assert trade["gross_pnl"] == 1.0
+    # Half a pip on entry + half a pip on exit = one pip total, not two.
+    assert trade["costs"] == .5
+    assert trade["pnl"] == .5

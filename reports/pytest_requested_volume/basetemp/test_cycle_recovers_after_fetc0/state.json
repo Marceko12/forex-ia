@@ -1,0 +1,11 @@
+{
+  "risk": {
+    "peak_equity": 1000.0,
+    "day_start_equity": 1000.0,
+    "current_day": "2026-10-15",
+    "trades_today": 0,
+    "halted": false,
+    "halt_reason": ""
+  },
+  "EURUSD|M15": "2026-10-15T04:15:00+00:00"
+}

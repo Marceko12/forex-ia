@@ -261,7 +261,13 @@ class AutonomousAgent:
                 decision.risk_estimate = self._estimate_risk(signal, float(row.atr))
                 if not decision.risk_estimate or not decision.risk_estimate.get("within_budget", False):
                     decision.action = "NO TRADE"
-                    decision.reasons.append("volumen mínimo/riesgo/margen no verificable dentro del límite")
+                    detail = (decision.risk_estimate or {}).get("reason", "estimación de riesgo incompleta")
+                    loss = (decision.risk_estimate or {}).get("risk_loss_estimate",
+                            (decision.risk_estimate or {}).get("minimum_loss_estimate"))
+                    budget = (decision.risk_estimate or {}).get("risk_budget")
+                    money = f"; pérdida estimada USD {loss:.4f} / presupuesto USD {budget:.4f}" \
+                        if loss is not None and budget is not None else ""
+                    decision.reasons.append(f"volumen solicitado/riesgo/margen bloqueado: {detail}{money}")
             if getattr(self, "risk_manager", None):
                 allowed, why = self.risk_manager.can_open(
                     pd.Timestamp(candle), float(self.broker.equity()), open_positions=len(positions)
@@ -319,20 +325,40 @@ class AutonomousAgent:
             return None
         per_lot += float(self.settings.backtest.commission_per_lot)
         equity = float(self.broker.equity())
-        lots = self.risk_manager.position_size_for_risk(equity, per_lot, self.broker.spec)
+        requested = self.settings.requested_volume_by_symbol.get(self.broker.spec.symbol)
+        if requested is not None:
+            valid, why = self.risk_manager.validate_requested_volume(float(requested), self.broker.spec)
+            if not valid:
+                return {"within_budget": False, "requested_volume": requested,
+                        "risk_budget": equity * self.risk_manager.cfg.risk_per_trade,
+                        "reason": why, "sl": sl}
+            lots = float(requested)
+        else:
+            lots = self.risk_manager.position_size_for_risk(equity, per_lot, self.broker.spec)
         budget = equity * self.risk_manager.cfg.risk_per_trade
         minimum_loss = per_lot * self.broker.spec.min_lot
         if lots <= 0:
             return {"within_budget": False, "minimum_volume": self.broker.spec.min_lot,
                     "minimum_loss_estimate": minimum_loss, "risk_budget": budget, "sl": sl}
+        risk_loss = per_lot * lots
         margin = self.broker.margin_for(side, lots, price)
         account = self.broker.mt5.account_info() if getattr(self.broker, "mt5", None) else None
         free = float(account.margin_free) if account else None
-        valid = margin is not None and free is not None and margin <= free and per_lot * lots <= budget
-        return {"within_budget": valid, "volume": lots, "sl": sl, "risk_loss_estimate": per_lot * lots,
+        if risk_loss > budget:
+            reason = f"pérdida estimada USD {risk_loss:.4f} supera presupuesto USD {budget:.4f}"
+        elif margin is None or free is None:
+            reason = "margen disponible no verificable"
+        elif margin > free:
+            reason = f"margen requerido USD {margin:.4f} supera margen libre USD {free:.4f}"
+        else:
+            reason = "ok"
+        valid = reason == "ok"
+        return {"within_budget": valid, "volume": lots, "requested_volume": requested, "sl": sl,
+                "risk_loss_estimate": risk_loss,
                 "risk_budget": budget, "margin_required": margin, "free_margin": free,
                 "entry_quote": price, "worst_entry_for_deviation": worst_entry,
-                "commission_assumption_per_lot": float(self.settings.backtest.commission_per_lot)}
+                "commission_assumption_per_lot": float(self.settings.backtest.commission_per_lot),
+                "reason": reason}
 
     def run_forever(self, cycle_minutes: int = 15, sleep_fn: Callable = time.sleep,
                     stop: Callable[[], bool] | None = None) -> None:

@@ -106,3 +106,23 @@ class RiskManager:
                                int(math.ceil(-math.log10(spec.min_lot))) + 2))
         lots = round(spec.min_lot + steps * spec.lot_step, precision)
         return lots if lots >= spec.min_lot else 0.0
+
+    def validate_requested_volume(self, volume: float, spec: SymbolSpec) -> tuple[bool, str]:
+        """Validate an explicitly requested volume without rounding it."""
+        if not math.isfinite(volume) or volume <= 0:
+            return False, "volumen solicitado no es finito y positivo"
+        if (not math.isfinite(spec.min_lot) or not math.isfinite(spec.max_lot)
+                or not math.isfinite(spec.lot_step) or spec.min_lot <= 0
+                or spec.max_lot < spec.min_lot or spec.lot_step <= 0):
+            return False, "especificaciones de volumen MT5 incompletas o inválidas"
+        if volume < spec.min_lot or volume > spec.max_lot:
+            return False, (f"volumen solicitado {volume:.2f} fuera del rango MT5 "
+                           f"[{spec.min_lot:.2f}, {spec.max_lot:.2f}]")
+        steps = (volume - spec.min_lot) / spec.lot_step
+        if abs(steps - round(steps)) > 1e-7:
+            return False, (f"volumen solicitado {volume:.2f} no respeta el paso MT5 "
+                           f"{spec.lot_step:.2f}")
+        if volume > self.cfg.max_lots + 1e-9:
+            return False, (f"volumen solicitado {volume:.2f} supera el límite de riesgo "
+                           f"max_lots={self.cfg.max_lots:.2f}")
+        return True, "ok"

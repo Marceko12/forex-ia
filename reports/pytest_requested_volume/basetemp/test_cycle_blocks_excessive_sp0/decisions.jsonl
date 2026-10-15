@@ -1,0 +1,1 @@
+{"timestamp": "2026-10-15T04:38:55.980494+00:00", "symbol": "EURUSD", "candle_time": "2026-10-15T04:15:00+00:00", "action": "NO TRADE", "strategy": null, "reasons": ["spread supera el límite configurado"], "metrics": {}, "spread_pips": 4.0, "risk_estimate": null, "execution_mode": "analysis_only"}

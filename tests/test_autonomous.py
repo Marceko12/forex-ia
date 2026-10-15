@@ -323,6 +323,10 @@ def test_strategy_evaluator_selects_from_bounded_recipes_without_test_tuning(mon
     evaluator = StrategyEvaluator(SymbolSpec("EURUSD", .0001), BacktestConfig(),
                                   RiskConfig(), StrategyConfig())
     evaluator.source_verified = True
+    diagnostic = evaluator.evaluate(ind, object())
+    assert diagnostic.selected is None
+    assert diagnostic.reason == "unverified_transaction_costs"
+    evaluator.costs_verified = True
     result = evaluator.evaluate(ind, object())
     assert result.selected is not None
     assert result.selected_config is not None
@@ -331,6 +335,7 @@ def test_strategy_evaluator_selects_from_bounded_recipes_without_test_tuning(mon
     protocol = result.strategies["evaluation_protocol"]
     assert (protocol["train_fraction"], protocol["selection_fraction"],
             protocol["validation_fraction"], protocol["final_test_fraction"]) == (.5, .2, .15, .15)
+    assert protocol["costs_verified"] is True
     evaluator.source_verified = False
     unverified = evaluator.evaluate(ind, object())
     assert unverified.selected is None

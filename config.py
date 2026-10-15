@@ -189,7 +189,7 @@ class RiskConfig:
 class BacktestConfig:
     initial_balance: float = 10_000.0
     spread_pips: float = 1.0
-    commission_per_lot: float = 7.0  # USD por lote (ida y vuelta)
+    commission_per_lot: float = 7.0  # Supuesto USD/lote round-turn; no confirmado para XM.
     slippage_pips: float = 0.2  # estimación por ejecución; validar con datos del broker
     train_fraction: float = 0.7
 
@@ -212,6 +212,11 @@ class Settings:
         max_lots=0.5,
     ))
     backtest: BacktestConfig = field(default_factory=BacktestConfig)
+    # Volumen solicitado explícitamente para este símbolo. El broker debe
+    # confirmar min/step/max y los gates de riesgo/margen pueden rechazarlo.
+    requested_volume_by_symbol: dict[str, float] = field(
+        default_factory=lambda: {"EURUSDmicro": 0.10}
+    )
 
     @property
     def spec(self) -> SymbolSpec:

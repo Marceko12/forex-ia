@@ -1,6 +1,6 @@
 {
   "data": {
-    "path": "data\\market_data.csv",
+    "path": "C:\\Users\\USUARIO\\Downloads\\forex-ai\\data\\market_data.csv",
     "sha256": "512d65e10248a09d7a9b592aa90201c31226cef99ed49367cb6b2e9fb1f13cc1",
     "rows": 5000,
     "first": "2026-07-31T16:45:00+00:00",
@@ -22,6 +22,10 @@
     "spread_pips": 1.0,
     "commission_per_lot": 7.0,
     "slippage_pips_each_side": 0.2,
+    "commission_status": "UNVERIFIED",
+    "swap_status": "NOT_MODELLED_UNVERIFIED",
+    "costs_verified": false,
+    "evaluation_mode": "diagnostic_only",
     "account_symbol_spec_confirmed": false
   },
   "split": {
@@ -54,6 +58,7 @@
     "reason": "no_candidate_passed_selection",
     "selection_uses": "three selection subperiods; independent validation gate",
     "source_verified": false,
+    "costs_verified": false,
     "test_use": "diagnostic only, only calculated after prior gates pass"
   },
   "candidate_metrics": {
@@ -761,6 +766,7 @@
       "validation_fraction": 0.15,
       "final_test_fraction": 0.15,
       "source_verified": false,
+      "costs_verified": false,
       "provisional_recipe": null,
       "test_is_diagnostic_only": true
     }
@@ -768,7 +774,8 @@
   "limits": [
     "CSV provenance is locally supported but not authenticated.",
     "If the sidecar manifest lacks pip/point, profit/loss tick values, contract/volume, digits, or profit currency, symbol specs remain unverified.",
-    "All costs are assumptions; the CSV's MT5 spread is used only when the manifest supplies a valid point size.",
+    "Commission and swap are unverified; the USD 7/lote commission remains a configured assumption, never a verified XM tariff.",
+    "All costs are assumptions; this run is diagnostic only and cannot select an operable strategy. The CSV's MT5 spread is used only when the manifest supplies a valid point size.",
     "No order or MT5 connection is performed by this report script.",
     "A passing historical filter would not establish a durable edge or guarantee outcomes."
   ]
